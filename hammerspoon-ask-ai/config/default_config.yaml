@@ -145,11 +145,7 @@ prompts:
     title: "Improve Writing"
     description: "Enhance grammar, clarity, and style"
     category: "writing"
-    template: |
-      Please improve the following text by enhancing grammar, 
-      clarity, and style while maintaining the original meaning:
-      
-      ${input}
+    template: "Please improve the following text by enhancing grammar, clarity, and style while maintaining the original meaning:\n\n${input}"
       
   translate_chinese:
     title: "Translate to Chinese"
@@ -167,11 +163,7 @@ prompts:
     title: "Continue Writing"
     description: "Extend and continue the text"
     category: "writing"
-    template: |
-      Please continue writing from where this text left off, 
-      maintaining the same style and tone:
-      
-      ${input}
+    template: "Please continue writing from where this text left off, maintaining the same style and tone:\n\n${input}"
 
   summarize:
     title: "Summarize"
