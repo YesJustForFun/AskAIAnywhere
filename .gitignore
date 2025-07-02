@@ -1,1 +1,28 @@
-alfred-ask-ai-anywhere-workflow
+# Ignore the old Alfred workflow (for reference only)
+alfred-ask-ai-anywhere-workflow/
+
+# Hammerspoon configuration files
+*.json
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+
+# Logs
+*.log
+
+# Backup files
+*.bak
+*~
+
+# IDE files
+.vscode/
+.idea/
+
+# Test output
+test_results/
+coverage/
+
+# Personal configuration
+personal_config.lua
