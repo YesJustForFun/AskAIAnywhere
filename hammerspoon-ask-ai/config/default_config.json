@@ -15,8 +15,8 @@
         "timeout": 30
       }
     },
-    "defaultProvider": "claude",
-    "fallbackProvider": "gemini"
+    "defaultProvider": "gemini",
+    "fallbackProvider": "claude"
   },
   "hotkeys": {
     "mainMenu": {
