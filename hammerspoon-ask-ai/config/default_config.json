@@ -1,0 +1,96 @@
+{
+  "version": "1.0.0",
+  "llm": {
+    "providers": {
+      "gemini": {
+        "command": "gemini",
+        "args": ["-p"],
+        "enabled": true,
+        "timeout": 30
+      },
+      "claude": {
+        "command": "claude", 
+        "args": ["-p"],
+        "enabled": true,
+        "timeout": 30
+      }
+    },
+    "defaultProvider": "claude",
+    "fallbackProvider": "gemini"
+  },
+  "hotkeys": {
+    "mainMenu": {
+      "key": "/",
+      "modifiers": ["cmd", "shift"]
+    },
+    "improveWriting": {
+      "key": "i",
+      "modifiers": ["cmd", "shift"]
+    },
+    "continueWriting": {
+      "key": "p",
+      "modifiers": ["cmd", "shift"] 
+    },
+    "translate": {
+      "key": "t",
+      "modifiers": ["cmd", "shift"]
+    },
+    "summarize": {
+      "key": "s",
+      "modifiers": ["cmd", "shift"]
+    }
+  },
+  "ui": {
+    "outputMethod": "display",
+    "showProgress": true,
+    "menuWidth": 400,
+    "menuRows": 8
+  },
+  "operations": {
+    "improve_writing": {
+      "title": "Improve Writing",
+      "description": "Enhance grammar, clarity, and style",
+      "prompt": "Please improve the following text by enhancing grammar, clarity, and style while maintaining the original meaning and tone:"
+    },
+    "continue_writing": {
+      "title": "Continue Writing", 
+      "description": "Extend and continue the text",
+      "prompt": "Please continue writing from where this text left off, maintaining the same style and tone:"
+    },
+    "change_tone_professional": {
+      "title": "Make Professional",
+      "description": "Change tone to professional",
+      "prompt": "Please rewrite the following text in a professional tone:"
+    },
+    "change_tone_casual": {
+      "title": "Make Casual",
+      "description": "Change tone to casual/friendly", 
+      "prompt": "Please rewrite the following text in a casual, friendly tone:"
+    },
+    "translate_chinese": {
+      "title": "Translate to Chinese",
+      "description": "Translate text to Chinese",
+      "prompt": "Please translate the following text to Chinese:"
+    },
+    "translate_english": {
+      "title": "Translate to English",
+      "description": "Translate text to English", 
+      "prompt": "Please translate the following text to English:"
+    },
+    "summarize": {
+      "title": "Summarize",
+      "description": "Create a concise summary",
+      "prompt": "Please provide a concise summary of the following text:"
+    },
+    "explain": {
+      "title": "Explain",
+      "description": "Explain the content clearly",
+      "prompt": "Please explain the following text in simple, clear terms:"
+    },
+    "fix_grammar": {
+      "title": "Fix Grammar",
+      "description": "Fix grammar and spelling errors",
+      "prompt": "Please fix any grammar and spelling errors in the following text:"
+    }
+  }
+}
