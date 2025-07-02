@@ -3,13 +3,13 @@
   "llm": {
     "providers": {
       "gemini": {
-        "command": "gemini",
+        "command": "/Users/kylechen/.asdf/installs/nodejs/24.2.0/bin/npx @google/gemini-cli@latest",
         "args": ["-p"],
         "enabled": true,
         "timeout": 30
       },
       "claude": {
-        "command": "claude", 
+        "command": "/Users/kylechen/.asdf/installs/nodejs/24.2.0/bin/npx @anthropic-ai/claude-code", 
         "args": ["-p"],
         "enabled": true,
         "timeout": 30
@@ -20,8 +20,8 @@
   },
   "hotkeys": {
     "mainMenu": {
-      "key": "/",
-      "modifiers": ["cmd", "shift"]
+      "key": "a",
+      "modifiers": ["cmd", "ctrl", "shift"]
     },
     "improveWriting": {
       "key": "i",

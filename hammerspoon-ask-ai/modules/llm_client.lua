@@ -53,6 +53,9 @@ function LLMClient:escapeShellArg(arg)
 end
 
 function LLMClient:executeCommand(command, timeout, callback)
+    -- Get user's shell and PATH environment, including asdf
+    local envCommand = "source ~/.asdf/asdf.sh 2>/dev/null || true; source ~/.zshrc 2>/dev/null || source ~/.bashrc 2>/dev/null || true; " .. command
+    
     -- Create a task to execute the command
     local task = hs.task.new("/bin/bash", function(exitCode, stdOut, stdErr)
         if exitCode == 0 then
@@ -64,7 +67,7 @@ function LLMClient:executeCommand(command, timeout, callback)
             local error = stdErr ~= "" and stdErr or "Command failed with exit code " .. exitCode
             callback(nil, error)
         end
-    end, {"-c", command})
+    end, {"-c", envCommand})
     
     -- Set timeout
     if timeout then
