@@ -11,7 +11,12 @@ function UIManager:new()
     return instance
 end
 
-function UIManager:showOperationChooser(operations, callback)
+function UIManager:showOperationChooser(operations, callback, uiName)
+    uiName = uiName or "menu"
+    
+    -- Get UI configuration
+    local uiConfig = self:getUIConfigByName(uiName)
+    
     -- Always create a new chooser to avoid callback issues
     if self.chooser then
         self.chooser:delete()
@@ -24,9 +29,12 @@ function UIManager:showOperationChooser(operations, callback)
     self.chooser:fgColor({["red"]=1,["blue"]=1,["green"]=1,["alpha"]=1})
     self.chooser:subTextColor({["red"]=0.7,["blue"]=0.7,["green"]=0.7,["alpha"]=1})
     
-    -- Set width and rows
-    self.chooser:width(20)
-    self.chooser:rows(8)
+    -- Set width and rows from UI config
+    local menuWidth = uiConfig.menuWidth or 400
+    local menuRows = uiConfig.menuRows or 8
+    
+    self.chooser:width(menuWidth / 20)  -- Hammerspoon uses character width units
+    self.chooser:rows(menuRows)
     
     -- Add search functionality
     self.chooser:searchSubText(true)
@@ -66,18 +74,34 @@ function UIManager:hideProgress()
     end
 end
 
-function UIManager:showResult(result)
-    -- Copy to clipboard for convenience
-    hs.pasteboard.setContents(result or "")
-    print("🤖 AI Result: " .. (result or "No result"))
+function UIManager:showResult(result, uiName)
+    uiName = uiName or "default"
     
-    -- Show result in configurable dialog
-    self:showResultDialog(result or "No result")
+    -- Get UI configuration
+    local uiConfig = self:getUIConfigByName(uiName)
+    local outputMethod = uiConfig.outputMethod or "display"
+    
+    print("🤖 AI Result (" .. outputMethod .. "): " .. (result or "No result"))
+    
+    if outputMethod == "display" then
+        -- Copy to clipboard for convenience
+        hs.pasteboard.setContents(result or "")
+        -- Show result in configurable dialog
+        self:showResultDialog(result or "No result", uiConfig)
+    elseif outputMethod == "clipboard" then
+        -- Just copy to clipboard
+        hs.pasteboard.setContents(result or "")
+        if uiConfig.showNotifications ~= false then
+            hs.alert.show("Result copied to clipboard")
+        end
+    elseif outputMethod == "chooser" then
+        -- Show in chooser format (useful for selection)
+        self:showResultInChooser(result or "No result", uiConfig)
+    end
 end
 
-function UIManager:showResultDialog(text)
-    -- Get UI configuration
-    local uiConfig = self:getUIConfig()
+function UIManager:showResultDialog(text, uiConfig)
+    uiConfig = uiConfig or self:getUIConfigByName("default")
     local dialogConfig = uiConfig.resultDialog or {}
     
     local widthPercentage = dialogConfig.widthPercentage or 50
@@ -241,6 +265,73 @@ function UIManager:getUIConfig()
             persistent = true
         }
     }
+end
+
+-- Get UI configuration by name (supports new multi-UI format)
+function UIManager:getUIConfigByName(uiName)
+    uiName = uiName or "default"
+    
+    if self.parent and self.parent.config then
+        local allUIConfigs = self.parent.config:get("ui", {})
+        
+        -- Handle both array and object format
+        if type(allUIConfigs) == "table" then
+            -- Try object format first: ui.default, ui.minimal, etc.
+            if allUIConfigs[uiName] then
+                return allUIConfigs[uiName]
+            end
+            
+            -- Try array format: find by name
+            for _, uiConfig in ipairs(allUIConfigs) do
+                if type(uiConfig) == "table" and uiConfig.name == uiName then
+                    return uiConfig
+                end
+            end
+            
+            -- If single UI config (old format), return it for any name
+            if allUIConfigs.outputMethod or allUIConfigs.resultDialog then
+                return allUIConfigs
+            end
+        end
+    end
+    
+    -- Fallback defaults based on UI name
+    local defaults = {
+        default = {
+            outputMethod = "display",
+            showProgress = true,
+            menuWidth = 400,
+            menuRows = 8,
+            resultDialog = {
+                widthPercentage = 50,
+                maxLines = 20,
+                persistent = true
+            }
+        },
+        minimal = {
+            outputMethod = "clipboard",
+            showProgress = false,
+            showNotifications = true
+        },
+        comparison = {
+            outputMethod = "display",
+            showProgress = true,
+            resultDialog = {
+                widthPercentage = 70,
+                persistent = true,
+                title = "Text Comparison",
+                maxLines = 30
+            }
+        },
+        menu = {
+            outputMethod = "chooser",
+            menuWidth = 500,
+            menuRows = 10,
+            showProgress = true
+        }
+    }
+    
+    return defaults[uiName] or defaults.default
 end
 
 function UIManager:createResultWindow(text)
@@ -494,6 +585,39 @@ end
 
 function UIManager:setParent(parent)
     self.parent = parent
+end
+
+-- Show result in chooser format (for selection/browsing)
+function UIManager:showResultInChooser(text, uiConfig)
+    local lines = {}
+    for line in text:gmatch("[^\r\n]+") do
+        table.insert(lines, {
+            text = line,
+            subText = "Line " .. #lines + 1
+        })
+    end
+    
+    if #lines == 0 then
+        lines = {{text = text, subText = "Result"}}
+    end
+    
+    -- Create chooser for browsing result
+    if self.resultChooser then
+        self.resultChooser:delete()
+    end
+    
+    self.resultChooser = hs.chooser.new(function(choice)
+        if choice then
+            hs.pasteboard.setContents(choice.text)
+            hs.alert.show("Line copied to clipboard")
+        end
+    end)
+    
+    self.resultChooser:choices(lines)
+    self.resultChooser:placeholderText("Browse result lines...")
+    self.resultChooser:width((uiConfig.menuWidth or 500) / 20)
+    self.resultChooser:rows(uiConfig.menuRows or 10)
+    self.resultChooser:show()
 end
 
 return UIManager

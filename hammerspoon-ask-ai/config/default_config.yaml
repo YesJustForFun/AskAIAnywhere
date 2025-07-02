@@ -1,0 +1,260 @@
+version: "2.0.0"
+
+environment:
+  paths:
+    - "~/.asdf/shims"
+    - "/opt/homebrew/bin"
+    - "/usr/local/bin"
+    - "~/.local/bin"
+
+llm:
+  providers:
+    gemini:
+      command: "npx @google/gemini-cli@latest"
+      args: ["-m", "gemini-2.5-flash", "-p"]
+      enabled: true
+      timeout: 30
+    claude:
+      command: "npx @anthropic-ai/claude-code"
+      args: ["-p"]
+      enabled: true
+      timeout: 30
+  defaultProvider: "gemini"
+  fallbackProvider: "claude"
+
+# Action-based hotkey system
+hotkeys:
+  # Main menu hotkey
+  - key: "/"
+    modifiers: ["ctrl", "opt", "cmd"]
+    name: "mainMenu"
+    description: "Show AI operations menu"
+    actions:
+      - name: "showMainMenu"
+        args:
+          title: "Ask AI Anywhere"
+          ui: "menu"
+
+  # Quick improve and copy
+  - key: "i"
+    modifiers: ["ctrl", "opt", "cmd"]
+    name: "improveAndCopy"
+    description: "Improve writing and copy to clipboard"
+    actions:
+      - name: "runPrompt"
+        args:
+          prompt: "improve_writing"
+      - name: "copyToClipboard"
+        args:
+          text: "${output}"
+      - name: "showNotification"
+        args:
+          message: "Improved text copied!"
+
+  # Continue writing and paste
+  - key: "p"
+    modifiers: ["ctrl", "opt", "cmd"]
+    name: "continueAndPaste"
+    description: "Continue writing and paste at cursor"
+    actions:
+      - name: "runPrompt"
+        args:
+          prompt: "continue_writing"
+      - name: "pasteAtCursor"
+        args:
+          text: "${output}"
+
+  # Translate with comparison display
+  - key: "c"
+    modifiers: ["ctrl", "opt", "cmd"]
+    name: "translateAndCompare"
+    description: "Translate and show comparison"
+    actions:
+      - name: "runPrompt"
+        args:
+          prompt: "translate_chinese"
+      - name: "displayText"
+        args:
+          ui: "comparison"
+          text: "${input}\n\n---\n\n${output}"
+      - name: "copyToClipboard"
+        args:
+          text: "${output}"
+
+  # Summarize with minimal UI
+  - key: "s"
+    modifiers: ["ctrl", "opt", "cmd"]
+    name: "summarizeQuiet"
+    description: "Summarize and copy quietly"
+    actions:
+      - name: "runPrompt"
+        args:
+          prompt: "summarize"
+      - name: "copyToClipboard"
+        args:
+          text: "${output}"
+      - name: "showNotification"
+        args:
+          message: "Summary copied to clipboard"
+
+# Named UI configurations for different scenarios
+ui:
+  default:
+    outputMethod: "display"
+    showProgress: true
+    menuWidth: 400
+    menuRows: 8
+    resultDialog:
+      widthPercentage: 50
+      maxLines: 20
+      persistent: true
+    
+  minimal:
+    outputMethod: "clipboard"
+    showProgress: false
+    showNotifications: true
+    
+  comparison:
+    outputMethod: "display"
+    showProgress: true
+    resultDialog:
+      widthPercentage: 70
+      persistent: true
+      title: "Text Comparison"
+      maxLines: 30
+        
+  menu:
+    outputMethod: "chooser"
+    menuWidth: 500
+    menuRows: 10
+    showProgress: true
+
+# Prompt templates with metadata
+prompts:
+  improve_writing:
+    title: "Improve Writing"
+    description: "Enhance grammar, clarity, and style"
+    category: "writing"
+    template: |
+      Please improve the following text by enhancing grammar, 
+      clarity, and style while maintaining the original meaning:
+      
+      ${input}
+      
+  translate_chinese:
+    title: "Translate to Chinese"
+    description: "Translate text to Chinese"
+    category: "translation"
+    template: "Please translate the following text to Chinese:\n\n${input}"
+    
+  translate_english:
+    title: "Translate to English"
+    description: "Translate text to English"
+    category: "translation"
+    template: "Please translate the following text to English:\n\n${input}"
+    
+  continue_writing:
+    title: "Continue Writing"
+    description: "Extend and continue the text"
+    category: "writing"
+    template: |
+      Please continue writing from where this text left off, 
+      maintaining the same style and tone:
+      
+      ${input}
+
+  summarize:
+    title: "Summarize"
+    description: "Create a concise summary"
+    category: "analysis"
+    template: "Please provide a concise summary of the following text:\n\n${input}"
+
+  explain:
+    title: "Explain"
+    description: "Explain the content clearly"
+    category: "analysis"
+    template: "Please explain the following text in simple, clear terms:\n\n${input}"
+
+  fix_grammar:
+    title: "Fix Grammar"
+    description: "Fix grammar and spelling errors"
+    category: "writing"
+    template: "Please fix any grammar and spelling errors in the following text:\n\n${input}"
+
+  change_tone_professional:
+    title: "Make Professional"
+    description: "Change tone to professional"
+    category: "writing"
+    template: "Please rewrite the following text in a professional tone:\n\n${input}"
+
+  change_tone_casual:
+    title: "Make Casual"
+    description: "Change tone to casual/friendly"
+    category: "writing"
+    template: "Please rewrite the following text in a casual, friendly tone:\n\n${input}"
+
+# Action definitions with parameter validation
+actions:
+  runPrompt:
+    description: "Execute an AI prompt"
+    parameters:
+      prompt:
+        type: "string"
+        required: true
+        description: "Prompt template name"
+      provider:
+        type: "string"
+        default: "${llm.defaultProvider}"
+        description: "LLM provider to use"
+        
+  copyToClipboard:
+    description: "Copy text to clipboard"
+    parameters:
+      text:
+        type: "string"
+        required: true
+        description: "Text to copy (supports variables)"
+        
+  displayText:
+    description: "Display text using specified UI"
+    parameters:
+      text:
+        type: "string" 
+        required: true
+        description: "Text to display (supports variables)"
+      ui:
+        type: "string"
+        default: "default"
+        description: "UI configuration name"
+        
+  pasteAtCursor:
+    description: "Type text at cursor position"
+    parameters:
+      text:
+        type: "string"
+        required: true
+        description: "Text to type (supports variables)"
+        
+  showNotification:
+    description: "Show system notification"
+    parameters:
+      message:
+        type: "string"
+        required: true
+        description: "Notification message"
+      duration:
+        type: "number"
+        default: 3
+        description: "Display duration in seconds"
+
+  showMainMenu:
+    description: "Show the main operations menu"
+    parameters:
+      title:
+        type: "string"
+        default: "Ask AI Anywhere"
+        description: "Menu title"
+      ui:
+        type: "string"
+        default: "menu"
+        description: "UI configuration for menu"

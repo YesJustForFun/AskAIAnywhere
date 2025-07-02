@@ -1,5 +1,6 @@
 -- Hotkey Manager Module
 -- Handles global hotkey registration and management
+-- Updated to support action-based hotkey system
 
 local HotkeyManager = {}
 HotkeyManager.__index = HotkeyManager
@@ -35,12 +36,72 @@ function HotkeyManager:bind(hotkeyConfig, callback)
         self.registeredKeys[hotkeyId] = {
             key = key,
             modifiers = modifiers,
-            callback = callback
+            callback = callback,
+            config = hotkeyConfig
         }
         return true, hotkeyId
     else
         return false, "Failed to register hotkey: " .. hotkeyId
     end
+end
+
+-- Bind action-based hotkeys from new configuration format
+function HotkeyManager:bindActionHotkeys(hotkeyArray, actionRegistry, createContextCallback)
+    local results = {}
+    
+    for i, hotkeyConfig in ipairs(hotkeyArray) do
+        local name = hotkeyConfig.name or ("hotkey_" .. i)
+        local actions = hotkeyConfig.actions or {}
+        
+        print("🤖 Binding action hotkey: " .. name)
+        
+        -- Create callback that executes action chain
+        local callback = function()
+            print("🤖 Action hotkey triggered: " .. name)
+            
+            -- Create execution context
+            local context = createContextCallback()
+            
+            -- Validate input
+            local success, error = pcall(function()
+                context:validateInput()
+            end)
+            
+            if not success then
+                hs.alert.show("Error: " .. error)
+                return
+            end
+            
+            -- Execute action chain
+            success, error = pcall(function()
+                context:executeActions(actions)
+            end)
+            
+            if not success then
+                print("🤖 ✗ Action chain failed: " .. error)
+                hs.alert.show("Action failed: " .. error)
+            else
+                print("🤖 ✓ Action chain completed: " .. name)
+            end
+        end
+        
+        -- Bind the hotkey
+        local success, message = self:bindWithValidation(hotkeyConfig, callback)
+        results[name] = {
+            success = success,
+            message = message,
+            config = hotkeyConfig,
+            actions = actions
+        }
+        
+        if success then
+            print("🤖 ✓ Action hotkey bound: " .. name .. " (" .. self:formatHotkeyDisplay(hotkeyConfig.modifiers, hotkeyConfig.key) .. ")")
+        else
+            print("🤖 ✗ Failed to bind action hotkey: " .. name .. " - " .. message)
+        end
+    end
+    
+    return results
 end
 
 function HotkeyManager:unbind(hotkeyId)
@@ -84,7 +145,10 @@ function HotkeyManager:getRegisteredHotkeys()
             id = hotkeyId,
             key = config.key,
             modifiers = config.modifiers,
-            display = self:formatHotkeyDisplay(config.modifiers, config.key)
+            display = self:formatHotkeyDisplay(config.modifiers, config.key),
+            name = config.config.name or "unnamed",
+            description = config.config.description or "No description",
+            actions = config.config.actions or {}
         })
     end
     return result
@@ -94,6 +158,7 @@ function HotkeyManager:formatHotkeyDisplay(modifiers, key)
     local modifierSymbols = {
         cmd = "⌘",
         alt = "⌥",
+        opt = "⌥",  -- Support both alt and opt
         ctrl = "⌃",
         shift = "⇧"
     }
@@ -101,7 +166,7 @@ function HotkeyManager:formatHotkeyDisplay(modifiers, key)
     local displayParts = {}
     
     -- Add modifiers in standard order
-    local standardOrder = {"ctrl", "alt", "shift", "cmd"}
+    local standardOrder = {"ctrl", "alt", "opt", "shift", "cmd"}
     for _, mod in ipairs(standardOrder) do
         if self:tableContains(modifiers, mod) then
             table.insert(displayParts, modifierSymbols[mod] or mod)
@@ -137,7 +202,7 @@ function HotkeyManager:validateHotkeyConfig(config)
     end
     
     -- Validate modifier names
-    local validModifiers = {"cmd", "alt", "ctrl", "shift"}
+    local validModifiers = {"cmd", "alt", "opt", "ctrl", "shift"}
     for _, modifier in ipairs(config.modifiers) do
         if not self:tableContains(validModifiers, modifier) then
             return false, "Invalid modifier: " .. modifier
@@ -195,10 +260,13 @@ function HotkeyManager:suggestAlternatives(modifiers, key)
     local modifierCombinations = {
         {"cmd", "shift"},
         {"cmd", "alt"},
+        {"cmd", "opt"},
         {"cmd", "ctrl"},
         {"alt", "shift"},
+        {"opt", "shift"},
         {"ctrl", "shift"},
-        {"cmd", "alt", "shift"}
+        {"cmd", "alt", "shift"},
+        {"cmd", "opt", "shift"}
     }
     
     for _, altModifiers in ipairs(modifierCombinations) do
@@ -240,6 +308,7 @@ function HotkeyManager:bindWithValidation(hotkeyConfig, callback)
     return self:bind(hotkeyConfig, callback)
 end
 
+-- Legacy support for old hotkey format
 function HotkeyManager:reloadHotkeys(hotkeyConfigs, callbacks)
     -- Unbind all existing hotkeys
     self:unbindAll()
@@ -258,6 +327,19 @@ function HotkeyManager:reloadHotkeys(hotkeyConfigs, callbacks)
     end
     
     return results
+end
+
+-- Get debug information about registered hotkeys
+function HotkeyManager:debug()
+    print("🤖 Hotkey Manager Debug:")
+    print("  Total registered hotkeys: " .. #self:getRegisteredHotkeys())
+    
+    for hotkeyId, config in pairs(self.registeredKeys) do
+        local display = self:formatHotkeyDisplay(config.modifiers, config.key)
+        local name = config.config.name or "unnamed"
+        local actionsCount = config.config.actions and #config.config.actions or 0
+        print("    " .. display .. " (" .. name .. ") - " .. actionsCount .. " actions")
+    end
 end
 
 return HotkeyManager

@@ -1,6 +1,7 @@
 -- Ask AI Anywhere - Hammerspoon Implementation
 -- A powerful tool for AI-assisted text processing from anywhere
 -- Replaces the Alfred workflow with a simpler Hammerspoon solution
+-- Updated with extensible action-based architecture
 
 print("🤖 Ask AI Anywhere: Starting initialization...")
 
@@ -29,6 +30,10 @@ local configManager = require('config_manager')
 print("🤖 ✓ config_manager loaded")
 local hotkeyManager = require('hotkey_manager')
 print("🤖 ✓ hotkey_manager loaded")
+local actionRegistry = require('action_registry')
+print("🤖 ✓ action_registry loaded")
+local ExecutionContext = require('execution_context')
+print("🤖 ✓ execution_context loaded")
 
 -- Initialize the application
 local AskAI = {}
@@ -44,6 +49,7 @@ function AskAI:new()
     instance.aiOperations = aiOperations:new(instance.llmClient)
     instance.uiManager = uiManager:new()
     instance.hotkeyManager = hotkeyManager:new()
+    instance.actionRegistry = actionRegistry:new()
     
     -- Set up parent references for config access
     instance.uiManager:setParent(instance)
@@ -57,22 +63,86 @@ function AskAI:new()
     return instance
 end
 
+-- Create execution context for action chains
+function AskAI:createExecutionContext(input)
+    input = input or self.textHandler:getSelectedText()
+    if not input or input == "" then
+        input = self.textHandler:getClipboard()
+    end
+    
+    local components = {
+        textHandler = self.textHandler,
+        llmClient = self.llmClient,
+        uiManager = self.uiManager,
+        actionRegistry = self.actionRegistry
+    }
+    
+    return ExecutionContext:new(input, self.config, components)
+end
+
 function AskAI:setupHotkeys()
-    local hotkeys = self.config:getHotkeys()
     print("🤖 Setting up hotkeys...")
-    print("🤖 Hotkeys config: " .. hs.inspect(hotkeys))
+    
+    -- Get hotkeys in new array format
+    local hotkeyArray = self.config:getHotkeysArray()
+    
+    if #hotkeyArray == 0 then
+        print("🤖 No hotkeys configured")
+        return
+    end
+    
+    print("🤖 Found " .. #hotkeyArray .. " hotkey configurations")
+    
+    -- Create context callback
+    local createContextCallback = function()
+        return self:createExecutionContext()
+    end
+    
+    -- Bind action-based hotkeys
+    local results = self.hotkeyManager:bindActionHotkeys(
+        hotkeyArray, 
+        self.actionRegistry, 
+        createContextCallback
+    )
+    
+    -- Report results
+    local successCount = 0
+    local failureCount = 0
+    
+    for name, result in pairs(results) do
+        if result.success then
+            successCount = successCount + 1
+        else
+            failureCount = failureCount + 1
+            print("🤖 ✗ Failed to bind hotkey '" .. name .. "': " .. result.message)
+        end
+    end
+    
+    print("🤖 Hotkey setup complete: " .. successCount .. " success, " .. failureCount .. " failed")
+    
+    -- Setup legacy hotkeys if no new-format hotkeys are available
+    if successCount == 0 then
+        print("🤖 Falling back to legacy hotkey format...")
+        self:setupLegacyHotkeys()
+    end
+end
+
+-- Legacy hotkey setup for backward compatibility
+function AskAI:setupLegacyHotkeys()
+    local hotkeys = self.config:getHotkeys()
+    print("🤖 Legacy hotkeys config: " .. hs.inspect(hotkeys))
     
     -- Main menu hotkey
     if hotkeys.mainMenu then
-        print("🤖 Binding main menu hotkey: " .. hs.inspect(hotkeys.mainMenu))
+        print("🤖 Binding legacy main menu hotkey: " .. hs.inspect(hotkeys.mainMenu))
         local success, result = self.hotkeyManager:bind(hotkeys.mainMenu, function()
-            print("🤖 Main menu hotkey triggered!")
+            print("🤖 Legacy main menu hotkey triggered!")
             self:showMainMenu()
         end)
         if success then
-            print("🤖 ✓ Main menu hotkey bound successfully")
+            print("🤖 ✓ Legacy main menu hotkey bound successfully")
         else
-            print("🤖 ✗ Failed to bind main menu hotkey: " .. (result or "unknown error"))
+            print("🤖 ✗ Failed to bind legacy main menu hotkey: " .. (result or "unknown error"))
         end
     else
         print("🤖 ✗ No main menu hotkey configuration found")
@@ -93,7 +163,7 @@ function AskAI:setupHotkeys()
     
     if hotkeys.translate then
         self.hotkeyManager:bind(hotkeys.translate, function()
-            self:quickAction('translate')
+            self:quickAction('translate_chinese')
         end)
     end
     
@@ -174,11 +244,101 @@ function AskAI:handleResult(result, outputMethod)
     end
 end
 
+-- Test configuration functionality
+function AskAI:testConfiguration()
+    print("🤖 Testing configuration...")
+    
+    -- Test LLM providers
+    local llmConfig = self.config:getLLMConfig()
+    local defaultProvider = llmConfig.defaultProvider
+    local fallbackProvider = llmConfig.fallbackProvider
+    
+    print("🤖 Default provider: " .. (defaultProvider or "none"))
+    print("🤖 Fallback provider: " .. (fallbackProvider or "none"))
+    
+    -- Test provider availability
+    if defaultProvider then
+        local providerConfig = self.config:getProviderConfig(defaultProvider)
+        if providerConfig and providerConfig.enabled then
+            print("🤖 ✓ Default provider (" .. defaultProvider .. ") is enabled")
+        else
+            print("🤖 ✗ Default provider (" .. defaultProvider .. ") is not enabled")
+        end
+    end
+    
+    -- Test hotkey configuration
+    local hotkeyArray = self.config:getHotkeysArray()
+    print("🤖 Configured hotkeys: " .. #hotkeyArray)
+    
+    for i, hotkey in ipairs(hotkeyArray) do
+        local display = self.hotkeyManager:formatHotkeyDisplay(hotkey.modifiers, hotkey.key)
+        print("🤖   " .. i .. ". " .. (hotkey.name or "unnamed") .. " (" .. display .. ") - " .. #(hotkey.actions or {}) .. " actions")
+    end
+    
+    hs.alert.show("Configuration test completed - check console for details")
+end
+
+-- Reload configuration
+function AskAI:reloadConfiguration()
+    print("🤖 Reloading configuration...")
+    
+    -- Unbind all hotkeys
+    self.hotkeyManager:unbindAll()
+    
+    -- Reload config
+    self.config:load()
+    
+    -- Re-setup hotkeys
+    self:setupHotkeys()
+    
+    hs.alert.show("Configuration reloaded")
+    print("🤖 Configuration reloaded successfully")
+end
+
+-- Debug function
+function AskAI:debug()
+    print("🤖 Ask AI Debug Information:")
+    print("🤖 =========================")
+    
+    -- Configuration debug
+    local hotkeyArray = self.config:getHotkeysArray()
+    print("🤖 Total hotkeys configured: " .. #hotkeyArray)
+    
+    -- Hotkey manager debug
+    self.hotkeyManager:debug()
+    
+    -- Action registry debug
+    local actions = self.actionRegistry:getAvailableActions()
+    print("🤖 Available actions: " .. hs.inspect(actions))
+    
+    -- UI config debug
+    local uiConfig = self.config:get("ui", {})
+    print("🤖 UI configuration: " .. hs.inspect(uiConfig))
+end
+
 -- Initialize and start the application
 print("🤖 Initializing Ask AI application...")
 local askAI = AskAI:new()
-print("🤖 ✓ Ask AI Anywhere initialized successfully!")
-print("🤖 Try pressing ⌘ + Shift + / to open the main menu")
 
--- Export for debugging
+-- Create menu bar for easy access
+local menubar = askAI.uiManager:createMenuBar()
+
+print("🤖 ✓ Ask AI Anywhere initialized successfully!")
+
+-- Print helpful information
+local hotkeyArray = askAI.config:getHotkeysArray()
+if #hotkeyArray > 0 then
+    print("🤖 Available hotkeys:")
+    for i, hotkey in ipairs(hotkeyArray) do
+        local display = askAI.hotkeyManager:formatHotkeyDisplay(hotkey.modifiers, hotkey.key)
+        local description = hotkey.description or hotkey.name or ("Hotkey " .. i)
+        print("🤖   " .. display .. " - " .. description)
+    end
+else
+    print("🤖 No hotkeys configured. Check your configuration file.")
+end
+
+print("🤖 Use the menu bar (🤖) for quick access to features")
+
+-- Export for debugging and external access
 return askAI

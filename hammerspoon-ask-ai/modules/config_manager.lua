@@ -1,5 +1,8 @@
 -- Configuration Manager
 -- Handles loading, saving, and managing configuration settings
+-- Supports both JSON and YAML formats
+
+local YamlParser = require('yaml_parser')
 
 local ConfigManager = {}
 ConfigManager.__index = ConfigManager
@@ -7,8 +10,14 @@ ConfigManager.__index = ConfigManager
 function ConfigManager:new()
     local instance = setmetatable({}, ConfigManager)
     instance.config = {}
-    instance.configPath = hs.configdir .. "/ask-ai-config.json"
-    instance.defaultConfigPath = "config/default_config.json"
+    instance.yamlParser = YamlParser:new()
+    
+    -- Support both YAML and JSON configurations
+    instance.userConfigPath = hs.configdir .. "/ask-ai-config.yaml"
+    instance.userConfigPathJSON = hs.configdir .. "/ask-ai-config.json"
+    instance.defaultConfigPath = "config/default_config.yaml"
+    instance.defaultConfigPathJSON = "config/default_config.json"
+    
     return instance
 end
 
@@ -26,40 +35,62 @@ function ConfigManager:load()
 end
 
 function ConfigManager:loadUserConfig()
-    local file = io.open(self.configPath, "r")
-    if not file then
-        return {}
+    -- Try YAML first, then JSON
+    local config = self:loadConfigFile(self.userConfigPath, "yaml")
+    if config and next(config) then
+        return config
     end
     
-    local content = file:read("*all")
-    file:close()
-    
-    local success, config = pcall(hs.json.decode, content)
-    if not success then
-        hs.alert.show("Error parsing user configuration")
-        return {}
-    end
-    
+    config = self:loadConfigFile(self.userConfigPathJSON, "json")
     return config or {}
 end
 
 function ConfigManager:loadDefaultConfig()
-    local currentDir = debug.getinfo(1, "S").source:match("@(.*/)") or ""
-    local configPath = currentDir .. "../config/default_config.json"
+    local currentDir = debug.getinfo(1, "S").source:match("@(.*/)")
+    if not currentDir then currentDir = "" end
     
-    local file = io.open(configPath, "r")
+    -- Try YAML first, then JSON
+    local yamlPath = currentDir .. "../config/default_config.yaml"
+    local config = self:loadConfigFile(yamlPath, "yaml")
+    if config and next(config) then
+        return config
+    end
+    
+    local jsonPath = currentDir .. "../config/default_config.json"
+    config = self:loadConfigFile(jsonPath, "json")
+    if config and next(config) then
+        return config
+    end
+    
+    hs.alert.show("Error: No default configuration found")
+    return {}
+end
+
+-- Load configuration file with format support
+function ConfigManager:loadConfigFile(filePath, format)
+    local file = io.open(filePath, "r")
     if not file then
-        hs.alert.show("Error: Default configuration not found")
-        return {}
+        return nil
     end
     
     local content = file:read("*all")
     file:close()
     
-    local success, config = pcall(hs.json.decode, content)
+    if not content or content == "" then
+        return nil
+    end
+    
+    local success, config
+    
+    if format == "yaml" then
+        success, config = pcall(self.yamlParser.parse, self.yamlParser, content)
+    else
+        success, config = pcall(hs.json.decode, content)
+    end
+    
     if not success then
-        hs.alert.show("Error parsing default configuration")
-        return {}
+        print("Error parsing " .. format .. " configuration from " .. filePath .. ": " .. (config or "unknown error"))
+        return nil
     end
     
     return config or {}
@@ -93,21 +124,32 @@ function ConfigManager:mergeConfigs(default, user)
     return deepMerge(default, user)
 end
 
-function ConfigManager:save()
-    local file = io.open(self.configPath, "w")
+function ConfigManager:save(format)
+    format = format or "yaml"
+    
+    local filePath = (format == "yaml") and self.userConfigPath or self.userConfigPathJSON
+    local file = io.open(filePath, "w")
     if not file then
         hs.alert.show("Error: Cannot save configuration")
         return false
     end
     
-    local success, jsonStr = pcall(hs.json.encode, self.config)
+    local content
+    local success
+    
+    if format == "yaml" then
+        success, content = pcall(self.yamlParser.toYaml, self.yamlParser, self.config)
+    else
+        success, content = pcall(hs.json.encode, self.config)
+    end
+    
     if not success then
         hs.alert.show("Error: Cannot encode configuration")
         file:close()
         return false
     end
     
-    file:write(jsonStr)
+    file:write(content)
     file:close()
     return true
 end
@@ -152,12 +194,52 @@ function ConfigManager:getHotkeys()
     return self:get("hotkeys", {})
 end
 
+-- Get hotkeys in new format (array) or old format (object)
+function ConfigManager:getHotkeysArray()
+    local hotkeys = self:get("hotkeys", {})
+    
+    -- If it's already an array, return it
+    if #hotkeys > 0 then
+        return hotkeys
+    end
+    
+    -- Convert old object format to new array format
+    local hotkeyArray = {}
+    for name, hotkeyConfig in pairs(hotkeys) do
+        if type(hotkeyConfig) == "table" and hotkeyConfig.key then
+            table.insert(hotkeyArray, {
+                key = hotkeyConfig.key,
+                modifiers = hotkeyConfig.modifiers or {},
+                name = name,
+                description = "Legacy hotkey: " .. name,
+                actions = {
+                    {
+                        name = "runPrompt",
+                        args = { prompt = name }
+                    },
+                    {
+                        name = "displayText",
+                        args = { text = "${output}", ui = "default" }
+                    }
+                }
+            })
+        end
+    end
+    
+    return hotkeyArray
+end
+
 function ConfigManager:getLLMConfig()
     return self:get("llm", {})
 end
 
 function ConfigManager:getOperations()
-    return self:get("operations", {})
+    -- Support both 'operations' (old) and 'prompts' (new) keys
+    local operations = self:get("operations", {})
+    if next(operations) then
+        return operations
+    end
+    return self:get("prompts", {})
 end
 
 function ConfigManager:getUIConfig()
