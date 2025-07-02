@@ -52,9 +52,44 @@ function LLMClient:escapeShellArg(arg)
     return "'" .. arg:gsub("'", "'\"'\"'") .. "'"
 end
 
+function LLMClient:expandPath(path)
+    -- Expand ~ and $HOME in paths
+    if not path then return path end
+    
+    -- Replace ~ with home directory
+    path = path:gsub("^~", os.getenv("HOME") or "~")
+    
+    -- Replace $HOME with actual home directory
+    path = path:gsub("$HOME", os.getenv("HOME") or "$HOME")
+    
+    return path
+end
+
+function LLMClient:buildEnvironmentCommand()
+    -- Get custom PATH from configuration
+    local customPaths = self.config:get("environment.paths", {})
+    
+    if #customPaths == 0 then
+        -- No custom paths, just use basic environment
+        return ""
+    end
+    
+    -- Expand paths and build PATH export
+    local expandedPaths = {}
+    for _, path in ipairs(customPaths) do
+        table.insert(expandedPaths, self:expandPath(path))
+    end
+    
+    -- Add current PATH at the end
+    table.insert(expandedPaths, "$PATH")
+    
+    local pathString = table.concat(expandedPaths, ":")
+    return "export PATH=\"" .. pathString .. "\"; "
+end
+
 function LLMClient:executeCommand(command, timeout, callback)
-    -- Get user's shell and PATH environment, including asdf
-    local envCommand = "source ~/.asdf/asdf.sh 2>/dev/null || true; source ~/.zshrc 2>/dev/null || source ~/.bashrc 2>/dev/null || true; " .. command
+    -- Build environment command with custom PATH
+    local envCommand = self:buildEnvironmentCommand() .. command
     
     -- Create a task to execute the command
     local task = hs.task.new("/bin/bash", function(exitCode, stdOut, stdErr)
