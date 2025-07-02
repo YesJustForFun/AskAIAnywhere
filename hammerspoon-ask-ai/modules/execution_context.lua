@@ -87,6 +87,7 @@ function ExecutionContext:substituteVariables(text)
         
         result = result:gsub("%${([^}]+)}", function(varName)
             local value = self:resolveVariable(varName)
+            print("🤖 Substituting ${" .. varName .. "} = " .. tostring(value or "nil"))
             return tostring(value or "")
         end)
     end

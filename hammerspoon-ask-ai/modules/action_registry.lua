@@ -143,7 +143,11 @@ function ActionRegistry:registerCoreActions()
         -- Substitute variables in prompt template  
         local promptText = context:substituteVariables(promptTemplate.template or promptTemplate.prompt)
         
-        print("🤖 Final prompt text: " .. promptText:sub(1, 100) .. "...")
+        print("🤖 Final prompt text: " .. (promptText and promptText:sub(1, 100) or "EMPTY") .. "...")
+        
+        if not promptText or promptText == "" then
+            error("Prompt text is empty after substitution")
+        end
         
         -- Store the async operation info for the execution context to handle
         context._asyncOperation = {
