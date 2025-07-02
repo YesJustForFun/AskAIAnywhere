@@ -568,6 +568,14 @@ function UIManager:createMenuBar()
                 end
             },
             {
+                title = "Test Hotkeys",
+                fn = function()
+                    if self.parent and self.parent.testHotkeys then
+                        self.parent:testHotkeys()
+                    end
+                end
+            },
+            {
                 title = "Reload Configuration",
                 fn = function()
                     if self.parent and self.parent.reloadConfiguration then

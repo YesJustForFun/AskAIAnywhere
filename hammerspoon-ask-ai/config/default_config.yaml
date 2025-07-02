@@ -10,12 +10,12 @@ environment:
 llm:
   providers:
     gemini:
-      command: "npx @google/gemini-cli@latest"
+      command: "gemini"
       args: ["-m", "gemini-2.5-flash", "-p"]
       enabled: true
       timeout: 30
     claude:
-      command: "npx @anthropic-ai/claude-code"
+      command: "claude"
       args: ["-p"]
       enabled: true
       timeout: 30
@@ -26,7 +26,7 @@ llm:
 hotkeys:
   # Main menu hotkey
   - key: "/"
-    modifiers: ["ctrl", "opt", "cmd"]
+    modifiers: ["cmd", "shift"]
     name: "mainMenu"
     description: "Show AI operations menu"
     actions:
@@ -37,7 +37,7 @@ hotkeys:
 
   # Quick improve and copy
   - key: "i"
-    modifiers: ["ctrl", "opt", "cmd"]
+    modifiers: ["cmd", "shift"]
     name: "improveAndCopy"
     description: "Improve writing and copy to clipboard"
     actions:
@@ -53,7 +53,7 @@ hotkeys:
 
   # Continue writing and paste
   - key: "p"
-    modifiers: ["ctrl", "opt", "cmd"]
+    modifiers: ["cmd", "shift"]
     name: "continueAndPaste"
     description: "Continue writing and paste at cursor"
     actions:
@@ -65,8 +65,8 @@ hotkeys:
           text: "${output}"
 
   # Translate with comparison display
-  - key: "c"
-    modifiers: ["ctrl", "opt", "cmd"]
+  - key: "t"
+    modifiers: ["cmd", "shift"]
     name: "translateAndCompare"
     description: "Translate and show comparison"
     actions:
@@ -83,7 +83,7 @@ hotkeys:
 
   # Summarize with minimal UI
   - key: "s"
-    modifiers: ["ctrl", "opt", "cmd"]
+    modifiers: ["cmd", "shift"]
     name: "summarizeQuiet"
     description: "Summarize and copy quietly"
     actions:
@@ -96,6 +96,16 @@ hotkeys:
       - name: "showNotification"
         args:
           message: "Summary copied to clipboard"
+
+  # Test hotkey (simple notification)
+  - key: "9"
+    modifiers: ["cmd", "shift"]
+    name: "testHotkey"
+    description: "Test hotkey functionality"
+    actions:
+      - name: "showNotification"
+        args:
+          message: "Hotkey test successful!"
 
 # Named UI configurations for different scenarios
 ui:
