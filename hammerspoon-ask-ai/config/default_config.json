@@ -12,7 +12,7 @@
     "providers": {
       "gemini": {
         "command": "npx @google/gemini-cli@latest",
-        "args": ["-p"],
+        "args": ["-m", "gemini-2.5-flash","-p"],
         "enabled": true,
         "timeout": 30
       },
@@ -52,7 +52,12 @@
     "outputMethod": "display",
     "showProgress": true,
     "menuWidth": 400,
-    "menuRows": 8
+    "menuRows": 8,
+    "resultDialog": {
+      "widthPercentage": 50,
+      "maxLines": 20,
+      "persistent": true
+    }
   },
   "operations": {
     "improve_writing": {

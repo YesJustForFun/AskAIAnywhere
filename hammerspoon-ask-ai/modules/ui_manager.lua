@@ -67,12 +67,180 @@ function UIManager:hideProgress()
 end
 
 function UIManager:showResult(result)
-    -- For now, show result in a simple alert (we can improve this later)
-    hs.alert.show("AI Result: " .. (result or "No result"), 10)
-    
-    -- Also copy to clipboard for convenience
+    -- Copy to clipboard for convenience
     hs.pasteboard.setContents(result or "")
     print("🤖 AI Result: " .. (result or "No result"))
+    
+    -- Show result in configurable dialog
+    self:showResultDialog(result or "No result")
+end
+
+function UIManager:showResultDialog(text)
+    -- Get UI configuration
+    local uiConfig = self:getUIConfig()
+    local dialogConfig = uiConfig.resultDialog or {}
+    
+    local widthPercentage = dialogConfig.widthPercentage or 50
+    local maxLines = dialogConfig.maxLines or 20
+    local persistent = dialogConfig.persistent ~= false -- default true
+    
+    -- Calculate dialog size
+    local screen = hs.screen.mainScreen()
+    local screenFrame = screen:frame()
+    local dialogWidth = math.floor(screenFrame.w * widthPercentage / 100)
+    
+    -- Truncate text if too long
+    local lines = {}
+    for line in text:gmatch("[^\r\n]+") do
+        table.insert(lines, line)
+    end
+    
+    if #lines > maxLines then
+        local truncatedLines = {}
+        for i = 1, maxLines - 1 do
+            table.insert(truncatedLines, lines[i])
+        end
+        table.insert(truncatedLines, "... (truncated, full result copied to clipboard)")
+        text = table.concat(truncatedLines, "\n")
+    end
+    
+    -- Create persistent dialog
+    if persistent then
+        self:showPersistentDialog(text, dialogWidth)
+    else
+        hs.alert.show(text, 10)
+    end
+end
+
+function UIManager:showPersistentDialog(text, width)
+    -- Close any existing dialog
+    if self.currentDialog then
+        self.currentDialog:delete()
+    end
+    
+    -- Create a simple webview dialog
+    local screen = hs.screen.mainScreen()
+    local screenFrame = screen:frame()
+    
+    -- Calculate height based on text length (rough estimate)
+    local lines = select(2, text:gsub('\n', '\n')) + 1
+    local height = math.min(math.max(lines * 25 + 100, 200), screenFrame.h * 0.8)
+    
+    local dialogFrame = {
+        x = (screenFrame.w - width) / 2,
+        y = (screenFrame.h - height) / 2,
+        w = width,
+        h = height
+    }
+    
+    self.currentDialog = hs.webview.new(dialogFrame)
+    
+    -- Simple HTML content
+    local htmlContent = string.format([[
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body {
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+                    font-size: 14px;
+                    line-height: 1.6;
+                    color: #333;
+                    margin: 20px;
+                    background-color: #f8f9fa;
+                }
+                .container {
+                    background-color: white;
+                    border-radius: 8px;
+                    padding: 20px;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                    height: calc(100vh - 40px);
+                    display: flex;
+                    flex-direction: column;
+                }
+                .header {
+                    border-bottom: 1px solid #eee;
+                    padding-bottom: 10px;
+                    margin-bottom: 20px;
+                    font-weight: 600;
+                    color: #555;
+                }
+                .content {
+                    flex: 1;
+                    white-space: pre-wrap;
+                    word-wrap: break-word;
+                    overflow-y: auto;
+                    font-size: 16px;
+                    line-height: 1.7;
+                }
+                .footer {
+                    margin-top: 20px;
+                    padding-top: 10px;
+                    border-top: 1px solid #eee;
+                    text-align: center;
+                    color: #666;
+                    font-size: 12px;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">🤖 AI Result</div>
+                <div class="content">%s</div>
+                <div class="footer">
+                    Press ESC to close • Result copied to clipboard
+                </div>
+            </div>
+            
+            <script>
+                document.addEventListener('keydown', function(event) {
+                    if (event.key === 'Escape') {
+                        window.close();
+                    }
+                });
+            </script>
+        </body>
+        </html>
+    ]], self:escapeHtml(text))
+    
+    self.currentDialog:html(htmlContent)
+    self.currentDialog:windowStyle({"titled", "closable"})
+    self.currentDialog:windowTitle("Ask AI - Result")
+    self.currentDialog:show()
+    self.currentDialog:bringToFront()
+    
+    -- Set up global hotkey to close
+    if self.closeDialogHotkey then
+        self.closeDialogHotkey:delete()
+    end
+    
+    self.closeDialogHotkey = hs.hotkey.bind({}, "escape", function()
+        if self.currentDialog then
+            self.currentDialog:delete()
+            self.currentDialog = nil
+            if self.closeDialogHotkey then
+                self.closeDialogHotkey:delete()
+                self.closeDialogHotkey = nil
+            end
+        end
+    end)
+end
+
+function UIManager:getUIConfig()
+    -- Try to get UI config from parent's config manager
+    if self.parent and self.parent.config then
+        return self.parent.config:getUIConfig()
+    end
+    
+    -- Fallback default
+    return {
+        resultDialog = {
+            widthPercentage = 50,
+            maxLines = 20,
+            persistent = true
+        }
+    }
 end
 
 function UIManager:createResultWindow(text)

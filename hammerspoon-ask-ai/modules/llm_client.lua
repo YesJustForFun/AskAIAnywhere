@@ -91,6 +91,9 @@ function LLMClient:executeCommand(command, timeout, callback)
     -- Build environment command with custom PATH
     local envCommand = self:buildEnvironmentCommand() .. command
     
+    -- Log the command being executed
+    print("🤖 Executing command: " .. envCommand)
+    
     -- Create a task to execute the command
     local task = hs.task.new("/bin/bash", function(exitCode, stdOut, stdErr)
         if exitCode == 0 then

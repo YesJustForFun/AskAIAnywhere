@@ -2,20 +2,33 @@
 -- A powerful tool for AI-assisted text processing from anywhere
 -- Replaces the Alfred workflow with a simpler Hammerspoon solution
 
+print("🤖 Ask AI Anywhere: Starting initialization...")
+
 -- Get the directory of this script and set up module paths
 local scriptPath = debug.getinfo(1, "S").source:match("@(.*)init%.lua$")
+print("🤖 Script path detected: " .. (scriptPath or "nil"))
+
 if scriptPath then
-    package.path = package.path .. ";" .. scriptPath .. "modules/?.lua"
+    local modulePath = scriptPath .. "modules/?.lua"
+    package.path = package.path .. ";" .. modulePath
     package.path = package.path .. ";" .. scriptPath .. "?.lua"
+    print("🤖 Added module path: " .. modulePath)
 end
 
 -- Import required modules
+print("🤖 Loading modules...")
 local textHandler = require('text_handler')
+print("🤖 ✓ text_handler loaded")
 local llmClient = require('llm_client')
+print("🤖 ✓ llm_client loaded")
 local aiOperations = require('ai_operations')
+print("🤖 ✓ ai_operations loaded")
 local uiManager = require('ui_manager')
+print("🤖 ✓ ui_manager loaded")
 local configManager = require('config_manager')
+print("🤖 ✓ config_manager loaded")
 local hotkeyManager = require('hotkey_manager')
+print("🤖 ✓ hotkey_manager loaded")
 
 -- Initialize the application
 local AskAI = {}
@@ -32,6 +45,9 @@ function AskAI:new()
     instance.uiManager = uiManager:new()
     instance.hotkeyManager = hotkeyManager:new()
     
+    -- Set up parent references for config access
+    instance.uiManager:setParent(instance)
+    
     -- Load configuration
     instance.config:load()
     
@@ -43,12 +59,23 @@ end
 
 function AskAI:setupHotkeys()
     local hotkeys = self.config:getHotkeys()
+    print("🤖 Setting up hotkeys...")
+    print("🤖 Hotkeys config: " .. hs.inspect(hotkeys))
     
     -- Main menu hotkey
     if hotkeys.mainMenu then
-        self.hotkeyManager:bind(hotkeys.mainMenu, function()
+        print("🤖 Binding main menu hotkey: " .. hs.inspect(hotkeys.mainMenu))
+        local success, result = self.hotkeyManager:bind(hotkeys.mainMenu, function()
+            print("🤖 Main menu hotkey triggered!")
             self:showMainMenu()
         end)
+        if success then
+            print("🤖 ✓ Main menu hotkey bound successfully")
+        else
+            print("🤖 ✗ Failed to bind main menu hotkey: " .. (result or "unknown error"))
+        end
+    else
+        print("🤖 ✗ No main menu hotkey configuration found")
     end
     
     -- Quick action hotkeys
@@ -78,6 +105,8 @@ function AskAI:setupHotkeys()
 end
 
 function AskAI:showMainMenu()
+    print("🤖 Opening main menu...")
+    
     local inputText = self.textHandler:getSelectedText()
     if not inputText or inputText == "" then
         inputText = self.textHandler:getClipboard()
@@ -91,6 +120,7 @@ function AskAI:showMainMenu()
     local operations = self.aiOperations:getAvailableOperations()
     self.uiManager:showOperationChooser(operations, function(choice)
         if choice then
+            print("🤖 Operation selected: " .. choice.operation)
             self:executeOperation(choice.operation, inputText)
         end
     end)
@@ -145,7 +175,10 @@ function AskAI:handleResult(result, outputMethod)
 end
 
 -- Initialize and start the application
+print("🤖 Initializing Ask AI application...")
 local askAI = AskAI:new()
+print("🤖 ✓ Ask AI Anywhere initialized successfully!")
+print("🤖 Try pressing ⌘ + Shift + / to open the main menu")
 
 -- Export for debugging
 return askAI
