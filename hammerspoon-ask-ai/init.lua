@@ -2,13 +2,20 @@
 -- A powerful tool for AI-assisted text processing from anywhere
 -- Replaces the Alfred workflow with a simpler Hammerspoon solution
 
+-- Get the directory of this script and set up module paths
+local scriptPath = debug.getinfo(1, "S").source:match("@(.*)init%.lua$")
+if scriptPath then
+    package.path = package.path .. ";" .. scriptPath .. "modules/?.lua"
+    package.path = package.path .. ";" .. scriptPath .. "?.lua"
+end
+
 -- Import required modules
-local textHandler = require('modules.text_handler')
-local llmClient = require('modules.llm_client')
-local aiOperations = require('modules.ai_operations')
-local uiManager = require('modules.ui_manager')
-local configManager = require('modules.config_manager')
-local hotkeyManager = require('modules.hotkey_manager')
+local textHandler = require('text_handler')
+local llmClient = require('llm_client')
+local aiOperations = require('ai_operations')
+local uiManager = require('ui_manager')
+local configManager = require('config_manager')
+local hotkeyManager = require('hotkey_manager')
 
 -- Initialize the application
 local AskAI = {}

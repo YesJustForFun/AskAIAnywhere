@@ -45,7 +45,7 @@ end
 
 function ConfigManager:loadDefaultConfig()
     local currentDir = debug.getinfo(1, "S").source:match("@(.*/)") or ""
-    local configPath = currentDir:gsub("modules/", "") .. "config/default_config.json"
+    local configPath = currentDir .. "../config/default_config.json"
     
     local file = io.open(configPath, "r")
     if not file then
