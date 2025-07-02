@@ -187,11 +187,43 @@ function AskAI:showMainMenu()
         return
     end
     
-    local operations = self.aiOperations:getAvailableOperations()
+    -- Get prompts from new configuration format
+    local prompts = self.config:get("prompts") or {}
+    local operations = {}
+    
+    for promptName, promptData in pairs(prompts) do
+        table.insert(operations, {
+            operation = promptName,
+            title = promptData.title or promptName,
+            description = promptData.description or "No description",
+            text = promptData.title or promptName,
+            subText = promptData.description or "No description"
+        })
+    end
+    
+    -- Sort by title
+    table.sort(operations, function(a, b)
+        return a.title < b.title
+    end)
+    
+    print("🤖 Available operations: " .. #operations)
+    
     self.uiManager:showOperationChooser(operations, function(choice)
         if choice then
             print("🤖 Operation selected: " .. choice.operation)
-            self:executeOperation(choice.operation, inputText)
+            
+            -- Use action-based execution
+            local context = self:createExecutionContext(inputText)
+            context:executeActions({
+                {
+                    name = "runPrompt",
+                    args = { prompt = choice.operation }
+                },
+                {
+                    name = "displayText",
+                    args = { text = "${output}", ui = "default" }
+                }
+            })
         end
     end)
 end
@@ -320,8 +352,8 @@ end
 print("🤖 Initializing Ask AI application...")
 local askAI = AskAI:new()
 
--- Create menu bar for easy access
-local menubar = askAI.uiManager:createMenuBar()
+-- Create menu bar for easy access and store reference to prevent garbage collection
+askAI.menubar = askAI.uiManager:createMenuBar()
 
 print("🤖 ✓ Ask AI Anywhere initialized successfully!")
 

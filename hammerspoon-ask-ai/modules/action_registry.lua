@@ -48,6 +48,11 @@ function ActionRegistry:execute(actionName, args, context)
         error("Action execution failed for '" .. actionName .. "': " .. result)
     end
     
+    -- Handle async operations
+    if result == "async_pending" and context._asyncOperation then
+        return "async_pending"
+    end
+    
     return result
 end
 
@@ -116,16 +121,16 @@ end
 -- Register core actions
 function ActionRegistry:registerCoreActions()
     
-    -- Run AI Prompt
+    -- Run AI Prompt (async action)
     self:register("runPrompt", function(args, context)
         local prompt = args.prompt
-        local provider = args.provider
+        local provider = args.provider or context.config:get("llm.defaultProvider") or "gemini"
         
         if not prompt then
             error("No prompt specified")
         end
         
-        print("🤖 Running prompt: " .. prompt .. " with provider: " .. (provider or "default"))
+        print("🤖 Running prompt: " .. prompt .. " with provider: " .. provider)
         
         -- Get prompt template
         local promptTemplate = context.config:get("prompts." .. prompt)
@@ -133,17 +138,22 @@ function ActionRegistry:registerCoreActions()
             error("Unknown prompt template: " .. prompt)
         end
         
-        -- Substitute variables in prompt template
+        print("🤖 Prompt template found: " .. (promptTemplate.title or prompt))
+        
+        -- Substitute variables in prompt template  
         local promptText = context:substituteVariables(promptTemplate.template or promptTemplate.prompt)
         
-        -- Execute with LLM client
-        local result = context.llmClient:execute(promptText, provider)
+        print("🤖 Final prompt text: " .. promptText:sub(1, 100) .. "...")
         
-        -- Update context with result
-        context.output = result
-        context:setVariable("output", result)
+        -- Store the async operation info for the execution context to handle
+        context._asyncOperation = {
+            type = "llm",
+            provider = provider,
+            prompt = promptText,
+            originalArgs = args
+        }
         
-        return result
+        return "async_pending"
     end, {
         description = "Execute an AI prompt",
         parameters = {

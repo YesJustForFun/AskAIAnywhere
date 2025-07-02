@@ -58,30 +58,29 @@ function HotkeyManager:bindActionHotkeys(hotkeyArray, actionRegistry, createCont
         -- Create callback that executes action chain
         local callback = function()
             print("🤖 Action hotkey triggered: " .. name)
+            print("🤖 Actions to execute: " .. #actions)
             
-            -- Create execution context
-            local context = createContextCallback()
-            
-            -- Validate input
             local success, error = pcall(function()
+                print("🤖 Creating execution context...")
+                -- Create execution context
+                local context = createContextCallback()
+                print("🤖 Context created successfully")
+                
+                print("🤖 Validating input...")
+                -- Validate input
                 context:validateInput()
-            end)
-            
-            if not success then
-                hs.alert.show("Error: " .. error)
-                return
-            end
-            
-            -- Execute action chain
-            success, error = pcall(function()
+                print("🤖 Input validated: " .. (context.input or "nil"):sub(1, 50))
+                
+                print("🤖 Starting action execution...")
+                -- Execute action chain
                 context:executeActions(actions)
             end)
             
             if not success then
-                print("🤖 ✗ Action chain failed: " .. error)
-                hs.alert.show("Action failed: " .. error)
+                print("🤖 ✗ Action chain failed: " .. tostring(error))
+                hs.alert.show("Action failed: " .. tostring(error))
             else
-                print("🤖 ✓ Action chain completed: " .. name)
+                print("🤖 ✓ Action chain initiated: " .. name)
             end
         end
         

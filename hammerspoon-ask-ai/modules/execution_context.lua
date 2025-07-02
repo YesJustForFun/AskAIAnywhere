@@ -158,7 +158,7 @@ function ExecutionContext:getMetadata(key)
     return nil
 end
 
--- Execute a sequence of actions
+-- Execute a sequence of actions (with async support)
 function ExecutionContext:executeActions(actions)
     if not actions or #actions == 0 then
         print("🤖 No actions to execute")
@@ -167,26 +167,72 @@ function ExecutionContext:executeActions(actions)
     
     print("🤖 Executing " .. #actions .. " actions")
     
-    for i, action in ipairs(actions) do
-        print("🤖 Action " .. i .. "/" .. #actions .. ": " .. action.name)
-        
-        local success, result = pcall(function()
-            return self.actionRegistry:execute(action.name, action.args or {}, self)
-        end)
-        
-        if not success then
-            print("🤖 ✗ Action failed: " .. action.name .. " - " .. result)
-            error("Action chain failed at step " .. i .. " (" .. action.name .. "): " .. result)
-        else
-            print("🤖 ✓ Action completed: " .. action.name)
-            
-            -- Store action result if needed
-            self:setMetadata("lastAction", action.name)
-            self:setMetadata("lastResult", result)
-        end
+    -- Execute actions recursively to handle async operations
+    self:_executeActionsRecursive(actions, 1)
+end
+
+-- Private method to execute actions recursively with async support
+function ExecutionContext:_executeActionsRecursive(actions, index)
+    if index > #actions then
+        print("🤖 All actions completed successfully")
+        return
     end
     
-    print("🤖 All actions completed successfully")
+    local action = actions[index]
+    print("🤖 Action " .. index .. "/" .. #actions .. ": " .. action.name)
+    
+    local success, result = pcall(function()
+        return self.actionRegistry:execute(action.name, action.args or {}, self)
+    end)
+    
+    if not success then
+        print("🤖 ✗ Action failed: " .. action.name .. " - " .. result)
+        error("Action chain failed at step " .. index .. " (" .. action.name .. "): " .. result)
+        return
+    end
+    
+    -- Handle async operations
+    if result == "async_pending" and self._asyncOperation then
+        local asyncOp = self._asyncOperation
+        self._asyncOperation = nil -- Clear the operation
+        
+        if asyncOp.type == "llm" then
+            print("🤖 Starting async LLM operation...")
+            
+            -- Execute LLM operation asynchronously
+            self.llmClient:execute(asyncOp.provider, asyncOp.prompt, function(llmResult, llmError)
+                if llmError then
+                    print("🤖 ✗ LLM operation failed: " .. llmError)
+                    hs.alert.show("AI operation failed: " .. llmError)
+                    return
+                end
+                
+                print("🤖 ✓ LLM operation completed")
+                
+                -- Update context with result
+                self.output = llmResult
+                self:setVariable("output", llmResult)
+                
+                -- Store action result
+                self:setMetadata("lastAction", action.name)
+                self:setMetadata("lastResult", llmResult)
+                
+                -- Continue with next action
+                self:_executeActionsRecursive(actions, index + 1)
+            end)
+            
+            return -- Exit here, continuation happens in callback
+        end
+    else
+        print("🤖 ✓ Action completed: " .. action.name)
+        
+        -- Store action result
+        self:setMetadata("lastAction", action.name)
+        self:setMetadata("lastResult", result)
+    end
+    
+    -- Continue with next action
+    self:_executeActionsRecursive(actions, index + 1)
 end
 
 -- Helper function to validate input text
