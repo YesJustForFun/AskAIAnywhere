@@ -12,24 +12,24 @@ function UIManager:new()
 end
 
 function UIManager:showOperationChooser(operations, callback)
-    -- Create or reuse chooser
-    if not self.chooser then
-        self.chooser = hs.chooser.new(callback)
-        
-        -- Configure chooser appearance
-        self.chooser:bgDark(true)
-        self.chooser:fgColor({["red"]=1,["blue"]=1,["green"]=1,["alpha"]=1})
-        self.chooser:subTextColor({["red"]=0.7,["blue"]=0.7,["green"]=0.7,["alpha"]=1})
-        
-        -- Set width and rows
-        self.chooser:width(20)
-        self.chooser:rows(8)
-        
-        -- Add search functionality
-        self.chooser:searchSubText(true)
-    else
-        self.chooser:completionFn(callback)
+    -- Always create a new chooser to avoid callback issues
+    if self.chooser then
+        self.chooser:delete()
     end
+    
+    self.chooser = hs.chooser.new(callback)
+    
+    -- Configure chooser appearance
+    self.chooser:bgDark(true)
+    self.chooser:fgColor({["red"]=1,["blue"]=1,["green"]=1,["alpha"]=1})
+    self.chooser:subTextColor({["red"]=0.7,["blue"]=0.7,["green"]=0.7,["alpha"]=1})
+    
+    -- Set width and rows
+    self.chooser:width(20)
+    self.chooser:rows(8)
+    
+    -- Add search functionality
+    self.chooser:searchSubText(true)
     
     -- Set choices and show
     self.chooser:choices(operations)
@@ -67,9 +67,12 @@ function UIManager:hideProgress()
 end
 
 function UIManager:showResult(result)
-    -- Show result in a large text window
-    local resultWindow = self:createResultWindow(result)
-    resultWindow:show()
+    -- For now, show result in a simple alert (we can improve this later)
+    hs.alert.show("AI Result: " .. (result or "No result"), 10)
+    
+    -- Also copy to clipboard for convenience
+    hs.pasteboard.setContents(result or "")
+    print("🤖 AI Result: " .. (result or "No result"))
 end
 
 function UIManager:createResultWindow(text)
@@ -190,7 +193,8 @@ function UIManager:createResultWindow(text)
                 }
                 
                 function closeWindow() {
-                    webkit.messageHandlers.controller.postMessage({action: 'close'});
+                    // Close window using Hammerspoon (simplified)
+                    window.close();
                 }
                 
                 // Close on escape key
@@ -210,12 +214,8 @@ function UIManager:createResultWindow(text)
     webview:windowStyle({"titled", "closable", "resizable"})
     webview:windowTitle("Ask AI - Result")
     
-    -- Handle messages from JavaScript
-    webview:userContentController():setCallback(function(message)
-        if message.action == "close" then
-            webview:delete()
-        end
-    end)
+    -- Handle close action (simplified - no JavaScript callbacks)
+    -- User can close with Escape key or close button
     
     -- Auto-focus and bring to front
     webview:bringToFront()
