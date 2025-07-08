@@ -294,18 +294,32 @@ function ActionRegistry:registerCoreActions()
                 operation = promptName,
                 title = promptData.title or promptName,
                 description = promptData.description or "No description",
+                text = promptData.title or promptName,  -- This is what chooser displays
+                subText = promptData.description or "No description",  -- This is the subtitle
                 category = promptData.category or "general"
             })
+        end
+        
+        print("🤖 Menu operations count: " .. #operations)
+        for i, op in ipairs(operations) do
+            print("🤖   " .. i .. ". " .. op.text .. " - " .. op.subText)
         end
         
         -- Show chooser with operations
         context.uiManager:showOperationChooser(operations, function(choice)
             if choice then
                 print("🤖 Menu selection: " .. choice.operation)
-                -- Execute the selected operation
-                local newContext = context:createChild()
-                context.actionRegistry:execute("runPrompt", {prompt = choice.operation}, newContext)
-                context.actionRegistry:execute("displayText", {text = "${output}", ui = "default"}, newContext)
+                -- Execute the selected operation directly without creating new context
+                context:executeActions({
+                    {
+                        name = "runPrompt",
+                        args = { prompt = choice.operation }
+                    },
+                    {
+                        name = "displayText",
+                        args = { text = "${output}", ui = "default" }
+                    }
+                })
             end
         end, ui)
         

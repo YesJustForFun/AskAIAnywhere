@@ -70,6 +70,7 @@ end
 function ConfigManager:loadConfigFile(filePath, format)
     local file = io.open(filePath, "r")
     if not file then
+        print("Error: Cannot open configuration file " .. filePath)
         return nil
     end
     

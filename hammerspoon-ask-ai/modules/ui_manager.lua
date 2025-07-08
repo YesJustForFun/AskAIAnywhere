@@ -8,6 +8,9 @@ function UIManager:new()
     local instance = setmetatable({}, UIManager)
     instance.chooser = nil
     instance.progressAlert = nil
+    instance.currentDialog = nil
+    instance.closeDialogHotkey = nil
+    instance.resultChooser = nil
     return instance
 end
 
@@ -234,19 +237,66 @@ function UIManager:showPersistentDialog(text, width)
     self.currentDialog:show()
     self.currentDialog:bringToFront()
     
-    -- Set up global hotkey to close
+    -- Set up ESCAPE hotkey with proper conflict avoidance
     if self.closeDialogHotkey then
         self.closeDialogHotkey:delete()
     end
     
+    -- Create ESCAPE hotkey but keep it disabled initially
     self.closeDialogHotkey = hs.hotkey.bind({}, "escape", function()
         if self.currentDialog then
+            print("🤖 Closing result dialog via ESCAPE key")
             self.currentDialog:delete()
             self.currentDialog = nil
             if self.closeDialogHotkey then
                 self.closeDialogHotkey:delete()
                 self.closeDialogHotkey = nil
             end
+        end
+    end)
+    
+    -- Helper functions for hotkey management
+    local function enableEscapeHotkey()
+        if self.closeDialogHotkey then
+            self.closeDialogHotkey:enable()
+            print("🤖 ESCAPE hotkey enabled for result dialog")
+        end
+    end
+    
+    local function disableEscapeHotkey()
+        if self.closeDialogHotkey then
+            self.closeDialogHotkey:disable()
+            print("🤖 ESCAPE hotkey disabled for result dialog")
+        end
+    end
+    
+    -- Set up window callback for focus and close management
+    self.currentDialog:windowCallback(function(action, webview, frame)
+        if action == "closing" then
+            print("🤖 Result dialog closing")
+            disableEscapeHotkey()
+            if self.closeDialogHotkey then
+                self.closeDialogHotkey:delete()
+                self.closeDialogHotkey = nil
+            end
+            self.currentDialog = nil
+        elseif action == "focusChange" then
+            -- Enable ESCAPE only when dialog has focus
+            if webview:hswindow() and webview:hswindow():isFocused() then
+                enableEscapeHotkey()
+            else
+                disableEscapeHotkey()
+            end
+        end
+    end)
+    
+    -- Start with hotkey disabled
+    disableEscapeHotkey()
+    
+    -- Enable after a brief delay to ensure dialog is ready
+    hs.timer.doAfter(0.1, function()
+        if self.currentDialog then
+            enableEscapeHotkey()
         end
     end)
 end
@@ -489,6 +539,8 @@ function UIManager:escapeHtml(text)
     text = text:gsub(">", "&gt;")
     text = text:gsub('"', "&quot;")
     text = text:gsub("'", "&#39;")
+    -- Convert newlines to HTML line breaks
+    text = text:gsub("\n", "<br>")
     return text
 end
 
@@ -593,6 +645,41 @@ end
 
 function UIManager:setParent(parent)
     self.parent = parent
+end
+
+-- Cleanup method to properly dispose of UI resources
+function UIManager:cleanup()
+    print("🤖 Cleaning up UI Manager resources")
+    
+    -- Clean up choosers
+    if self.chooser then
+        self.chooser:delete()
+        self.chooser = nil
+    end
+    
+    if self.resultChooser then
+        self.resultChooser:delete()
+        self.resultChooser = nil
+    end
+    
+    -- Clean up progress alert
+    if self.progressAlert then
+        hs.alert.closeSpecific(self.progressAlert)
+        self.progressAlert = nil
+    end
+    
+    -- Clean up current dialog and its hotkey
+    if self.closeDialogHotkey then
+        self.closeDialogHotkey:delete()
+        self.closeDialogHotkey = nil
+    end
+    
+    if self.currentDialog then
+        self.currentDialog:delete()
+        self.currentDialog = nil
+    end
+    
+    print("🤖 UI Manager cleanup completed")
 end
 
 -- Show result in chooser format (for selection/browsing)

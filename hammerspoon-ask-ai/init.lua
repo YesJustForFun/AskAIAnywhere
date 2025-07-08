@@ -348,6 +348,20 @@ function AskAI:debug()
     print("🤖 UI configuration: " .. hs.inspect(uiConfig))
 end
 
+-- Global cleanup function for Hammerspoon reload
+if _G.askAI then
+    print("🤖 Cleaning up previous instance...")
+    if _G.askAI.uiManager and _G.askAI.uiManager.cleanup then
+        _G.askAI.uiManager:cleanup()
+    end
+    if _G.askAI.hotkeyManager and _G.askAI.hotkeyManager.unbindAll then
+        _G.askAI.hotkeyManager:unbindAll()
+    end
+    if _G.askAI.menubar then
+        _G.askAI.menubar:delete()
+    end
+end
+
 -- Initialize and start the application
 print("🤖 Initializing Ask AI application...")
 local askAI = AskAI:new()
@@ -371,6 +385,9 @@ else
 end
 
 print("🤖 Use the menu bar (🤖) for quick access to features")
+
+-- Store global reference for cleanup on reload
+_G.askAI = askAI
 
 -- Export for debugging and external access
 return askAI
