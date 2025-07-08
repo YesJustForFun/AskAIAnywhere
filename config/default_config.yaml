@@ -25,8 +25,8 @@ llm:
       args: ["-p"]
       enabled: true
       timeout: 30
-  defaultProvider: "gemini-py"
-  fallbackProvider: "gemini"
+  defaultProvider: "gemini"
+  fallbackProvider: "claude"
 
 # Action-based hotkey system
 hotkeys:

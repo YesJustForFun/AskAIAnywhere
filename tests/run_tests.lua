@@ -22,7 +22,10 @@ local function run_all_tests()
     local unit_tests = {
         "test_config_manager",
         "test_ai_operations", 
-        "test_hotkey_manager"
+        "test_hotkey_manager",
+        "test_text_handler",
+        "test_llm_client",
+        "test_execution_context"
     }
     
     for _, test_name in ipairs(unit_tests) do
@@ -50,7 +53,8 @@ local function run_all_tests()
     print("-" .. string.rep("-", 30))
     
     local integration_tests = {
-        "test_full_workflow"
+        "test_full_workflow",
+        "test_end_to_end"
     }
     
     for _, test_name in ipairs(integration_tests) do

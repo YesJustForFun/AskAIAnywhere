@@ -65,6 +65,45 @@ local function run_integration_tests()
             getContents = function() return "test clipboard content" end,
             setContents = function(content) print("Clipboard set to: " .. content) end
         },
+        application = {
+            frontmostApplication = function()
+                return {
+                    name = function() return "TestApp" end,
+                    focusedWindow = function() return {} end
+                }
+            end
+        },
+        axuielement = {
+            applicationElement = function(app)
+                return {
+                    attributeValue = function(self, attr)
+                        if attr == "AXFocusedUIElement" then
+                            return {
+                                attributeValue = function(self, attr)
+                                    if attr == "AXSelectedText" then
+                                        return "Test selected text from full workflow"
+                                    end
+                                    return nil
+                                end
+                            }
+                        end
+                        return nil
+                    end
+                }
+            end
+        },
+        eventtap = {
+            keyStroke = function(modifiers, key)
+                print("Mock keyStroke: " .. table.concat(modifiers, "+") .. "+" .. key)
+            end,
+            keyStrokes = function(text)
+                print("Mock keyStrokes: " .. text)
+            end
+        },
+        timer = {
+            usleep = function(ms) end,
+            doAfter = function(delay, fn) fn() end
+        },
         osascript = {
             applescript = function(script) 
                 return true, "selected text from applescript"

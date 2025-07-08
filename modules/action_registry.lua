@@ -309,8 +309,9 @@ function ActionRegistry:registerCoreActions()
         context.uiManager:showOperationChooser(operations, function(choice)
             if choice then
                 print("🤖 Menu selection: " .. choice.operation)
-                -- Execute the selected operation directly without creating new context
-                context:executeActions({
+                -- Create a child context to prevent loops
+                local childContext = context:createChild()
+                childContext:executeActions({
                     {
                         name = "runPrompt",
                         args = { prompt = choice.operation }

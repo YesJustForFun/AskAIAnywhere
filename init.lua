@@ -3,7 +3,18 @@
 -- Replaces the Alfred workflow with a simpler Hammerspoon solution
 -- Updated with extensible action-based architecture
 
+-- Prevent re-initialization loop with timestamp check
+local currentTime = os.time()
+if _G.askAI_initializing and (_G.askAI_init_time and (currentTime - _G.askAI_init_time) < 5) then
+    print("🤖 Ask AI already initializing, skipping... (last init: " .. (_G.askAI_init_time or "never") .. ")")
+    return
+end
+_G.askAI_initializing = true
+_G.askAI_init_time = currentTime
+
+-- Disable logging temporarily to prevent any recursion issues
 print("🤖 Ask AI Anywhere: Starting initialization...")
+print("🤖 Initialization time: " .. currentTime)
 
 -- Get the directory of this script and set up module paths
 local scriptPath = debug.getinfo(1, "S").source:match("@(.*)init%.lua$")
@@ -348,23 +359,64 @@ function AskAI:debug()
     print("🤖 UI configuration: " .. hs.inspect(uiConfig))
 end
 
+-- Test hotkey triggering for debugging
+function AskAI:testHotkey(hotkeyName)
+    print("🤖 Testing hotkey: " .. tostring(hotkeyName))
+    
+    local hotkeyArray = self.config:getHotkeysArray()
+    local targetHotkey = nil
+    
+    for _, hotkey in ipairs(hotkeyArray) do
+        if hotkey.name == hotkeyName then
+            targetHotkey = hotkey
+            break
+        end
+    end
+    
+    if not targetHotkey then
+        print("🤖 ✗ Hotkey not found: " .. tostring(hotkeyName))
+        return
+    end
+    
+    print("🤖 Simulating hotkey: " .. targetHotkey.name)
+    
+    -- Create context and execute actions
+    local context = self:createExecutionContext("This is test input for debugging")
+    context:executeActions(targetHotkey.actions or {})
+end
+
 -- Global cleanup function for Hammerspoon reload
 if _G.askAI then
     print("🤖 Cleaning up previous instance...")
     if _G.askAI.uiManager and _G.askAI.uiManager.cleanup then
-        _G.askAI.uiManager:cleanup()
+        local success, err = pcall(_G.askAI.uiManager.cleanup, _G.askAI.uiManager)
+        if not success then
+            print("🤖 Cleanup error (uiManager): " .. err)
+        end
     end
     if _G.askAI.hotkeyManager and _G.askAI.hotkeyManager.unbindAll then
-        _G.askAI.hotkeyManager:unbindAll()
+        local success, err = pcall(_G.askAI.hotkeyManager.unbindAll, _G.askAI.hotkeyManager)
+        if not success then
+            print("🤖 Cleanup error (hotkeyManager): " .. err)
+        end
     end
     if _G.askAI.menubar then
-        _G.askAI.menubar:delete()
+        local success, err = pcall(_G.askAI.menubar.delete, _G.askAI.menubar)
+        if not success then
+            print("🤖 Cleanup error (menubar): " .. err)
+        end
     end
+    _G.askAI = nil
 end
 
 -- Initialize and start the application
 print("🤖 Initializing Ask AI application...")
-local askAI = AskAI:new()
+local success, askAI = pcall(AskAI.new, AskAI)
+if not success then
+    print("🤖 ✗ Failed to initialize Ask AI: " .. askAI)
+    _G.askAI_initializing = false
+    return
+end
 
 -- Create menu bar for easy access and store reference to prevent garbage collection
 askAI.menubar = askAI.uiManager:createMenuBar()
@@ -388,6 +440,9 @@ print("🤖 Use the menu bar (🤖) for quick access to features")
 
 -- Store global reference for cleanup on reload
 _G.askAI = askAI
+
+-- Reset initialization flag
+_G.askAI_initializing = false
 
 -- Export for debugging and external access
 return askAI

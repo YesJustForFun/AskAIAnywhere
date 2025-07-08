@@ -10,43 +10,131 @@ function TextHandler:new()
 end
 
 function TextHandler:getSelectedText()
-    -- Use AppleScript to get selected text from any application
-    local script = [[
-        try
-            tell application "System Events"
-                set selectedText to ""
-                -- Try to get selected text using copy command
-                keystroke "c" using command down
-                delay 0.1
-                set selectedText to (the clipboard as string)
-                return selectedText
-            end tell
-        on error
-            return ""
-        end try
-    ]]
+    print("🤖 Getting selected text...")
     
+    -- Try accessibility API first (fastest, most reliable)
+    local accessibilityText = self:getSelectedTextViaAccessibility()
+    if accessibilityText and accessibilityText ~= "" then
+        print("🤖 Accessibility API returned: " .. accessibilityText:sub(1, 50) .. (accessibilityText:len() > 50 and "..." or ""))
+        return self:cleanAndValidateText(accessibilityText)
+    end
+    
+    print("🤖 Accessibility API failed, trying clipboard method...")
+    -- Fallback to clipboard method if accessibility doesn't work
+    local clipboardText = self:getSelectedTextViaClipboard()
+    print("🤖 Clipboard method returned: " .. (clipboardText or "nil"):sub(1, 50) .. (((clipboardText or ""):len() > 50) and "..." or ""))
+    return clipboardText
+end
+
+function TextHandler:getSelectedTextViaAccessibility()
+    print("🤖 Trying accessibility API...")
+    
+    -- Get the frontmost application
+    local app = hs.application.frontmostApplication()
+    if not app then
+        print("🤖 No frontmost application")
+        return ""
+    end
+    
+    print("🤖 Frontmost app: " .. app:name())
+    
+    -- Try to get the focused UI element using accessibility
+    local axApp = hs.axuielement.applicationElement(app)
+    if not axApp then
+        print("🤖 No accessibility app element")
+        return ""
+    end
+    
+    -- Get the focused element
+    local focusedAXElement = axApp:attributeValue("AXFocusedUIElement")
+    if not focusedAXElement then
+        print("🤖 No focused accessibility element")
+        return ""
+    end
+    
+    -- Try to get selected text directly
+    local selectedText = focusedAXElement:attributeValue("AXSelectedText")
+    if selectedText and selectedText ~= "" then
+        print("🤖 Found selected text via AXSelectedText: " .. selectedText:sub(1, 50) .. "...")
+        return selectedText
+    end
+    
+    -- If no selected text, try to get value and selection range
+    local value = focusedAXElement:attributeValue("AXValue")
+    local selectedRange = focusedAXElement:attributeValue("AXSelectedTextRange")
+    
+    if value and selectedRange and selectedRange.length > 0 then
+        local startPos = selectedRange.location + 1  -- Lua is 1-indexed
+        local endPos = startPos + selectedRange.length - 1
+        local rangeText = value:sub(startPos, endPos)
+        print("🤖 Found selected text via range: " .. rangeText:sub(1, 50) .. "...")
+        return rangeText
+    end
+    
+    print("🤖 No selected text found via accessibility")
+    return ""
+end
+
+function TextHandler:getSelectedTextViaClipboard()
     -- Store current clipboard content
     local originalClipboard = hs.pasteboard.getContents()
     
-    -- Execute AppleScript to copy selected text
-    local success, result = hs.osascript.applescript(script)
+    -- Copy selected text to clipboard
+    hs.eventtap.keyStroke({"cmd"}, "c")
     
-    if success and result and result ~= "" and result ~= originalClipboard then
-        -- Restore original clipboard if it was different
-        if originalClipboard then
-            hs.timer.doAfter(0.1, function()
-                hs.pasteboard.setContents(originalClipboard)
-            end)
-        end
-        return result
+    -- Small delay to ensure clipboard is updated
+    hs.timer.usleep(100000)  -- 100ms
+    
+    -- Get the new clipboard content
+    local newClipboard = hs.pasteboard.getContents()
+    
+    -- Restore original clipboard after a short delay
+    if originalClipboard then
+        hs.timer.doAfter(0.1, function()
+            hs.pasteboard.setContents(originalClipboard)
+        end)
+    end
+    
+    -- Return the selected text if it's different from original
+    if newClipboard and newClipboard ~= originalClipboard then
+        return self:cleanAndValidateText(newClipboard)
     end
     
     return ""
 end
 
+function TextHandler:cleanAndValidateText(text)
+    if not text or type(text) ~= "string" then
+        return ""
+    end
+    
+    -- Remove null bytes and control characters (except newlines, tabs, carriage returns)
+    text = text:gsub("[\000-\008\011\012\014-\031\127]", "")
+    
+    -- Normalize line endings to Unix style
+    text = text:gsub("\r\n", "\n")
+    text = text:gsub("\r", "\n")
+    
+    -- Remove excessive whitespace while preserving intentional spacing
+    text = text:gsub("[ \t]+", " ")  -- Multiple spaces/tabs to single space
+    text = text:gsub("\n[ \t]+", "\n")  -- Remove leading whitespace on lines
+    text = text:gsub("[ \t]+\n", "\n")  -- Remove trailing whitespace on lines
+    text = text:gsub("\n\n\n+", "\n\n")  -- Multiple blank lines to double newline
+    
+    -- Trim leading and trailing whitespace
+    text = text:match("^%s*(.-)%s*$") or ""
+    
+    -- Validate text length (warn if too long)
+    if #text > 50000 then
+        print("🤖 Warning: Text is very long (" .. #text .. " chars), might cause processing issues")
+    end
+    
+    return text
+end
+
 function TextHandler:getClipboard()
-    return hs.pasteboard.getContents() or ""
+    local clipboardContent = hs.pasteboard.getContents() or ""
+    return self:cleanAndValidateText(clipboardContent)
 end
 
 function TextHandler:setClipboard(text)

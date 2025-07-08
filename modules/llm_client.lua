@@ -33,6 +33,28 @@ function LLMClient:buildCommand(providerConfig, prompt)
     local cmd = providerConfig.command
     local args = providerConfig.args or {}
     
+    -- Check for extremely long prompts
+    if #prompt > 32000 then
+        print("🤖 Warning: Prompt is very long (" .. #prompt .. " chars), might cause issues")
+    end
+    
+    -- For very long prompts or prompts with special characters, use temp file
+    -- For short, simple prompts, use direct piping for better performance
+    if #prompt > 4000 or self:hasSpecialCharacters(prompt) then
+        print("🤖 Using temp file approach for complex prompt")
+        return self:buildCommandWithTempFile(cmd, prompt, args)
+    else
+        print("🤖 Using direct piping for simple prompt")
+        return self:buildCommandWithDirectPipe(cmd, prompt, args)
+    end
+end
+
+function LLMClient:hasSpecialCharacters(text)
+    -- Check for characters that might cause shell issues
+    return text:match("['\"`\\$%*%?%[%]%{%}%(%)%|&;<>%s]") ~= nil
+end
+
+function LLMClient:buildCommandWithDirectPipe(cmd, prompt, args)
     -- Escape prompt for shell
     local escapedPrompt = self:escapeShellArg(prompt)
     
@@ -41,10 +63,52 @@ function LLMClient:buildCommand(providerConfig, prompt)
     
     -- Add arguments
     for _, arg in ipairs(args) do
-        command = command .. " " .. arg
+        command = command .. " " .. self:escapeShellArg(arg)
     end
     
     return command
+end
+
+function LLMClient:buildCommandWithTempFile(cmd, prompt, args)
+    -- Create temporary file path
+    local tempFile = "/tmp/ask_ai_input_" .. os.time() .. "_" .. math.random(1000, 9999) .. ".txt"
+    
+    -- Write prompt directly to temp file using Lua I/O
+    local success, error = self:writeToTempFile(tempFile, prompt)
+    if not success then
+        print("🤖 ✗ Failed to write temp file: " .. error)
+        return nil
+    end
+    
+    -- Build command to read from temp file
+    local command = cmd
+    
+    -- Add arguments
+    for _, arg in ipairs(args) do
+        command = command .. " " .. self:escapeShellArg(arg)
+    end
+    
+    -- Add temp file as input and cleanup
+    command = command .. " < " .. tempFile .. " && rm " .. tempFile
+    
+    return command
+end
+
+function LLMClient:writeToTempFile(tempFile, content)
+    -- Write content directly to file using Lua I/O
+    local file, error = io.open(tempFile, "w")
+    if not file then
+        return false, "Cannot open temp file: " .. (error or "unknown error")
+    end
+    
+    local success, writeError = file:write(content)
+    file:close()
+    
+    if not success then
+        return false, "Cannot write to temp file: " .. (writeError or "unknown error")
+    end
+    
+    return true, nil
 end
 
 function LLMClient:escapeShellArg(arg)

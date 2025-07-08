@@ -9,6 +9,8 @@ function HotkeyManager:new()
     local instance = setmetatable({}, HotkeyManager)
     instance.hotkeys = {}
     instance.registeredKeys = {}
+    instance.lastExecutionTimes = {}
+    instance.debounceDelay = 0.5  -- 500ms debounce delay
     return instance
 end
 
@@ -57,6 +59,17 @@ function HotkeyManager:bindActionHotkeys(hotkeyArray, actionRegistry, createCont
         
         -- Create callback that executes action chain
         local callback = function()
+            -- Check debounce to prevent rapid execution
+            local currentTime = os.time()
+            local lastTime = self.lastExecutionTimes[name] or 0
+            
+            if currentTime - lastTime < self.debounceDelay then
+                print("🤖 Debounce: Ignoring hotkey trigger for " .. name .. " (too soon)")
+                return
+            end
+            
+            self.lastExecutionTimes[name] = currentTime
+            
             print("🤖 Action hotkey triggered: " .. name)
             print("🤖 Actions to execute: " .. #actions)
             

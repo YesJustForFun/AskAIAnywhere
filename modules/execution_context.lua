@@ -20,7 +20,11 @@ function ExecutionContext:new(input, config, components)
         uiManager = components.uiManager,
         actionRegistry = components.actionRegistry,
         metadata = {},
-        parent = nil
+        parent = nil,
+        executionId = tostring(math.random(1000000, 9999999)),
+        executionDepth = 0,
+        maxExecutionDepth = 5,
+        isExecuting = false
     }
     setmetatable(context, ExecutionContext)
     return context
@@ -42,6 +46,8 @@ function ExecutionContext:createChild()
     
     child.parent = self
     child.output = self.output
+    child.executionDepth = self.executionDepth + 1
+    child.executionId = self.executionId .. "_child"
     
     return child
 end
@@ -166,7 +172,22 @@ function ExecutionContext:executeActions(actions)
         return
     end
     
-    print("🤖 Executing " .. #actions .. " actions")
+    -- Loop detection and prevention
+    if self.isExecuting then
+        print("🤖 ✗ Loop detected! Execution already in progress for context " .. self.executionId)
+        error("Loop detected: Context is already executing actions")
+        return
+    end
+    
+    if self.executionDepth > self.maxExecutionDepth then
+        print("🤖 ✗ Maximum execution depth exceeded (" .. self.executionDepth .. " > " .. self.maxExecutionDepth .. ")")
+        error("Maximum execution depth exceeded: " .. self.executionDepth)
+        return
+    end
+    
+    print("🤖 Executing " .. #actions .. " actions (depth: " .. self.executionDepth .. ", id: " .. self.executionId .. ")")
+    
+    self.isExecuting = true
     
     -- Execute actions recursively to handle async operations
     self:_executeActionsRecursive(actions, 1)
@@ -176,6 +197,7 @@ end
 function ExecutionContext:_executeActionsRecursive(actions, index)
     if index > #actions then
         print("🤖 All actions completed successfully")
+        self.isExecuting = false
         return
     end
     
@@ -188,6 +210,7 @@ function ExecutionContext:_executeActionsRecursive(actions, index)
     
     if not success then
         print("🤖 ✗ Action failed: " .. action.name .. " - " .. result)
+        self.isExecuting = false
         error("Action chain failed at step " .. index .. " (" .. action.name .. "): " .. result)
         return
     end
@@ -252,6 +275,20 @@ function ExecutionContext:validateInput()
         self.input = input
         self:setVariable("input", input)
         print("🤖 Input acquired: " .. input:sub(1, 50) .. (input:len() > 50 and "..." or ""))
+    else
+        -- Input already exists, just validate it's not corrupted
+        print("🤖 Input already exists: " .. self.input:sub(1, 50) .. (self.input:len() > 50 and "..." or ""))
+        
+        -- Double check input is not a command string
+        if self.input:match("^[%w%.]+%s+%-%-") or self.input:match("gemini%.py") or self.input:match("claude") then
+            print("🤖 ⚠️ Input looks like a command, trying to get fresh text...")
+            local freshInput = self.textHandler:getSelectedText()
+            if freshInput and freshInput ~= "" and not freshInput:match("^[%w%.]+%s+%-%-") then
+                print("🤖 Using fresh input: " .. freshInput:sub(1, 50) .. (freshInput:len() > 50 and "..." or ""))
+                self.input = freshInput
+                self:setVariable("input", freshInput)
+            end
+        end
     end
     
     return self.input
