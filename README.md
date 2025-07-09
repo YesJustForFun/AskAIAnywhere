@@ -125,14 +125,32 @@ hotkeys:
 
 #### Custom Prompts
 
-You can create custom operations by modifying the configuration:
+You can create custom prompts by adding them to the configuration:
 
 ```yaml
-operations:
-  custom_operation:
+prompts:
+  my_custom_prompt:
     title: "My Custom Operation"
     description: "Does something specific"
-    prompt: "Please perform this specific task on the following text:"
+    category: "custom"
+    template: "Please perform this specific task on the following text:\n\n${input}"
+```
+
+Then create a hotkey to use your custom prompt:
+
+```yaml
+hotkeys:
+  - key: "m"
+    modifiers: ["cmd", "alt", "ctrl"]
+    name: "myCustomAction"
+    description: "Run my custom operation"
+    actions:
+      - name: "runPrompt"
+        args:
+          prompt: "my_custom_prompt"
+      - name: "displayText"
+        args:
+          text: "${output}"
 ```
 
 #### Menu Bar Access
