@@ -186,7 +186,7 @@ The application adds a menu bar item (🤖) for quick access to:
 ### Running Tests
 
 ```bash
-cd hammerspoon-ask-ai/tests
+cd tests
 lua run_tests.lua                    # Run all tests
 lua run_tests.lua test_config_manager # Run specific test
 lua run_tests.lua --help             # Show test options
