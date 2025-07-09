@@ -165,7 +165,7 @@ The application adds a menu bar item (🤖) for quick access to:
 ### Project Structure
 
 ```
-hammerspoon-ask-ai/
+.
 ├── init.lua                 # Main application entry point
 ├── modules/
 │   ├── config_manager.lua   # Configuration management
