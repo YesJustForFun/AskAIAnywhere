@@ -20,7 +20,7 @@ After installation, you can start using Ask AI Anywhere immediately:
 
 1. **Open any application** with text (TextEdit, Notes, Slack, etc.)
 2. **Select some text** you want to process
-3. **Press `⌘ + Shift + /`** to open the main menu
+3. **Press `⌘ + ⌥ + ⌃ + /`** to open the main menu
 4. **Choose an operation** from the list
 5. **Wait for the AI response** and review the result
 
@@ -153,11 +153,13 @@ You can configure how AI results are delivered:
 
 | Hotkey | Action | Description |
 |--------|--------|-------------|
-| `⌘ + Shift + /` | Main Menu | Opens operation selection menu |
-| `⌘ + Shift + I` | Improve Writing | Quick improve writing action |
-| `⌘ + Shift + P` | Continue Writing | Quick continue writing action |
-| `⌘ + Shift + T` | Translate | Quick translation action |
-| `⌘ + Shift + S` | Summarize | Quick summarize action |
+| `⌘ + ⌥ + ⌃ + /` | Main Menu | Opens operation selection menu |
+| `⌘ + ⌥ + ⌃ + I` | Improve Writing | Improve writing and paste at cursor |
+| `⌘ + ⌥ + ⌃ + P` | Continue Writing | Continue writing and paste at cursor |
+| `⌘ + ⌥ + ⌃ + E` | Translate to English | Translate to English and paste at cursor |
+| `⌘ + ⌥ + ⌃ + C` | Translate to Chinese | Translate to Chinese and show comparison |
+| `⌘ + ⌥ + ⌃ + S` | Summarize | Summarize and copy quietly |
+| `⌘ + ⌥ + ⌃ + F` | Fix Grammar | Fix grammar and replace selected text |
 
 ### Menu Navigation
 
@@ -181,38 +183,56 @@ In the result display window:
 
 You can create custom AI operations by editing your configuration:
 
-```json
-{
-  "operations": {
-    "code_review": {
-      "title": "Code Review",
-      "description": "Review code for improvements",
-      "prompt": "Please review this code and suggest improvements:"
-    },
-    "meeting_notes": {
-      "title": "Format Meeting Notes",
-      "description": "Structure meeting notes professionally", 
-      "prompt": "Please format these meeting notes in a professional structure:"
-    }
-  }
-}
+```yaml
+prompts:
+  code_review:
+    title: "Code Review"
+    description: "Review code for improvements"
+    category: "development"
+    template: "Please review this code and suggest improvements:\n\n${input}"
+  meeting_notes:
+    title: "Format Meeting Notes"
+    description: "Structure meeting notes professionally"
+    category: "productivity"
+    template: "Please format these meeting notes in a professional structure:\n\n${input}"
+```
+
+Then create hotkeys to use your custom prompts:
+
+```yaml
+hotkeys:
+  - key: "r"
+    modifiers: ["cmd", "alt", "ctrl"]
+    name: "codeReview"
+    description: "Review code for improvements"
+    actions:
+      - name: "runPrompt"
+        args:
+          prompt: "code_review"
+      - name: "displayText"
+        args:
+          text: "${output}"
 ```
 
 ### Multiple AI Providers
 
 Configure multiple providers for reliability:
 
-```json
-{
-  "llm": {
-    "defaultProvider": "claude",
-    "fallbackProvider": "gemini",
-    "providers": {
-      "claude": {"enabled": true},
-      "gemini": {"enabled": true}
-    }
-  }
-}
+```yaml
+llm:
+  defaultProvider: "gemini"
+  fallbackProvider: "claude"
+  providers:
+    claude:
+      command: "claude"
+      args: ["-p"]
+      enabled: true
+      timeout: 30
+    gemini:
+      command: "gemini"
+      args: ["-m", "gemini-2.5-flash", "-p"]
+      enabled: true
+      timeout: 30
 ```
 
 If the primary provider fails, the system automatically tries the fallback.
@@ -254,19 +274,19 @@ The system automatically:
 #### Email Enhancement
 1. **Draft email** quickly
 2. **Select content** 
-3. **Press `⌘ + Shift + I`** (improve writing)
+3. **Press `⌘ + ⌥ + ⌃ + I`** (improve writing)
 4. **Review result**
 5. **Replace or copy** improved version
 
 #### Translation Workflow
 1. **Copy foreign text**
-2. **Press `⌘ + Shift + T`** (translate)
+2. **Press `⌘ + ⌥ + ⌃ + E`** (translate to English)
 3. **Choose target language**
 4. **Get instant translation**
 
 #### Content Summarization
 1. **Select long article/document**
-2. **Press `⌘ + Shift + S`** (summarize)
+2. **Press `⌘ + ⌥ + ⌃ + S`** (summarize)
 3. **Get key points**
 4. **Use for notes/reference**
 
