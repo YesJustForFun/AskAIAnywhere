@@ -102,6 +102,11 @@ function ExecutionContext:substituteVariables(text)
         print("🤖 Warning: Variable substitution reached maximum iterations")
     end
     
+    -- Process escape sequences after variable substitution
+    result = result:gsub("\\n", "\n")
+    result = result:gsub("\\t", "\t")
+    result = result:gsub("\\r", "\r")
+    
     return result
 end
 
@@ -187,6 +192,9 @@ function ExecutionContext:executeActions(actions)
     
     print("🤖 Executing " .. #actions .. " actions (depth: " .. self.executionDepth .. ", id: " .. self.executionId .. ")")
     
+    -- DEBUG: Show current text selection state before executing actions
+    self:debugTextSelectionState()
+    
     self.isExecuting = true
     
     -- Execute actions recursively to handle async operations
@@ -261,11 +269,19 @@ end
 
 -- Helper function to validate input text
 function ExecutionContext:validateInput()
+    print("🤖 Validating input...")
+    
     if not self.input or self.input == "" then
+        print("🤖 No input in context, getting from text selection...")
+        
         -- Try to get input from text selection or clipboard
         local input = self.textHandler:getSelectedText()
+        print("🤖 Text selection result: " .. (input or "nil"):sub(1, 100) .. (((input or ""):len() > 100) and "..." or ""))
+        
         if not input or input == "" then
+            print("🤖 No selected text, falling back to clipboard...")
             input = self.textHandler:getClipboard()
+            print("🤖 Clipboard result: " .. (input or "nil"):sub(1, 100) .. (((input or ""):len() > 100) and "..." or ""))
         end
         
         if not input or input == "" then
@@ -283,14 +299,19 @@ function ExecutionContext:validateInput()
         if self.input:match("^[%w%.]+%s+%-%-") or self.input:match("gemini%.py") or self.input:match("claude") then
             print("🤖 ⚠️ Input looks like a command, trying to get fresh text...")
             local freshInput = self.textHandler:getSelectedText()
+            print("🤖 Fresh text result: " .. (freshInput or "nil"):sub(1, 100) .. (((freshInput or ""):len() > 100) and "..." or ""))
+            
             if freshInput and freshInput ~= "" and not freshInput:match("^[%w%.]+%s+%-%-") then
                 print("🤖 Using fresh input: " .. freshInput:sub(1, 50) .. (freshInput:len() > 50 and "..." or ""))
                 self.input = freshInput
                 self:setVariable("input", freshInput)
+            else
+                print("🤖 Fresh input also looks like command or is empty, keeping original")
             end
         end
     end
     
+    print("🤖 Input validated: " .. self.input:sub(1, 50) .. (self.input:len() > 50 and "..." or ""))
     return self.input
 end
 
@@ -337,6 +358,56 @@ function ExecutionContext:debug()
     for key, value in pairs(self.metadata) do
         print("    " .. key .. " = " .. tostring(value))
     end
+end
+
+-- Debug function to show text selection state before action execution
+function ExecutionContext:debugTextSelectionState()
+    print("🤖 ===== TEXT SELECTION DEBUG =====")
+    
+    -- Show current context input
+    print("🤖 Context Input: " .. (self.input or "nil"):sub(1, 100) .. (((self.input or ""):len() > 100) and "..." or ""))
+    
+    -- Test accessibility API directly
+    local accessibilityText = self.textHandler:getSelectedTextViaAccessibility()
+    print("🤖 Accessibility API Result: " .. (accessibilityText or "nil"):sub(1, 100) .. (((accessibilityText or ""):len() > 100) and "..." or ""))
+    
+    -- Test clipboard content
+    local clipboardText = self.textHandler:getClipboard()
+    print("🤖 Current Clipboard: " .. (clipboardText or "nil"):sub(1, 100) .. (((clipboardText or ""):len() > 100) and "..." or ""))
+    
+    -- Test full text selection method
+    local selectedText = self.textHandler:getSelectedText()
+    print("🤖 Full Selection Method: " .. (selectedText or "nil"):sub(1, 100) .. (((selectedText or ""):len() > 100) and "..." or ""))
+    
+    -- Show frontmost application
+    local app = hs.application.frontmostApplication()
+    if app then
+        print("🤖 Frontmost App: " .. app:name())
+        
+        -- Show window title if available
+        local window = app:focusedWindow()
+        if window then
+            print("🤖 Focused Window: " .. (window:title() or "untitled"))
+        end
+    end
+    
+    -- Compare all three sources
+    local allSame = (self.input == accessibilityText) and (accessibilityText == clipboardText)
+    local inputMatchesClipboard = (self.input == clipboardText)
+    local inputMatchesAccessibility = (self.input == accessibilityText)
+    
+    print("🤖 Text Source Comparison:")
+    print("🤖   Input == Accessibility: " .. tostring(inputMatchesAccessibility))
+    print("🤖   Input == Clipboard: " .. tostring(inputMatchesClipboard))
+    print("🤖   All sources same: " .. tostring(allSame))
+    
+    -- Check if input looks like a command
+    local looksLikeCommand = (self.input or ""):match("^[%w%.]+%s+%-%-") or 
+                             (self.input or ""):match("gemini%.py") or 
+                             (self.input or ""):match("claude")
+    print("🤖   Input looks like command: " .. tostring(looksLikeCommand))
+    
+    print("🤖 ================================")
 end
 
 return ExecutionContext

@@ -12,7 +12,27 @@ end
 function TextHandler:getSelectedText()
     print("🤖 Getting selected text...")
     
-    -- Try accessibility API first (fastest, most reliable)
+    -- For efficiency, try clipboard method first for known problematic apps
+    local app = hs.application.frontmostApplication()
+    if app then
+        local appName = app:name()
+        local skipAccessibility = (appName == "Code" or appName == "Visual Studio Code" or 
+                                 appName == "Terminal" or appName == "iTerm2" or
+                                 appName == "Sublime Text" or appName == "Atom" or
+                                 appName == "Arc" or appName == "Google Chrome" or
+                                 appName == "Firefox" or appName == "Safari")
+        
+        if skipAccessibility then
+            print("🤖 App " .. appName .. " - using clipboard method directly")
+            local clipboardText = self:getSelectedTextViaClipboard()
+            if clipboardText and clipboardText ~= "" then
+                print("🤖 Clipboard method returned: " .. clipboardText:sub(1, 50) .. (clipboardText:len() > 50 and "..." or ""))
+                return clipboardText
+            end
+        end
+    end
+    
+    -- Try accessibility API for other apps
     local accessibilityText = self:getSelectedTextViaAccessibility()
     if accessibilityText and accessibilityText ~= "" then
         print("🤖 Accessibility API returned: " .. accessibilityText:sub(1, 50) .. (accessibilityText:len() > 50 and "..." or ""))
@@ -22,8 +42,23 @@ function TextHandler:getSelectedText()
     print("🤖 Accessibility API failed, trying clipboard method...")
     -- Fallback to clipboard method if accessibility doesn't work
     local clipboardText = self:getSelectedTextViaClipboard()
-    print("🤖 Clipboard method returned: " .. (clipboardText or "nil"):sub(1, 50) .. (((clipboardText or ""):len() > 50) and "..." or ""))
-    return clipboardText
+    if clipboardText and clipboardText ~= "" then
+        print("🤖 Clipboard method returned: " .. clipboardText:sub(1, 50) .. (clipboardText:len() > 50 and "..." or ""))
+        return clipboardText
+    end
+    
+    print("🤖 Clipboard method failed, trying AppleScript method...")
+    -- Try AppleScript as another fallback
+    local appleScriptText = self:getSelectedTextViaAppleScript()
+    if appleScriptText and appleScriptText ~= "" then
+        return appleScriptText
+    end
+    
+    print("🤖 No selected text found, falling back to current clipboard content...")
+    -- Final fallback: return current clipboard content
+    local fallbackText = self:getClipboard()
+    print("🤖 Fallback clipboard content: " .. (fallbackText or "nil"):sub(1, 50) .. (((fallbackText or ""):len() > 50) and "..." or ""))
+    return fallbackText
 end
 
 function TextHandler:getSelectedTextViaAccessibility()
@@ -36,7 +71,28 @@ function TextHandler:getSelectedTextViaAccessibility()
         return ""
     end
     
-    print("🤖 Frontmost app: " .. app:name())
+    local appName = app:name()
+    print("🤖 Frontmost app: " .. appName)
+    
+    -- Check if this app is known to have accessibility issues
+    local problematicApps = {
+        ["Code"] = "VS Code",
+        ["Visual Studio Code"] = "VS Code", 
+        ["Sublime Text"] = "Text Editor",
+        ["Atom"] = "Text Editor",
+        ["Terminal"] = "Terminal App",
+        ["iTerm2"] = "Terminal App",
+        ["Arc"] = "Browser",
+        ["Google Chrome"] = "Browser",
+        ["Firefox"] = "Browser",
+        ["Safari"] = "Browser"
+    }
+    
+    if problematicApps[appName] then
+        print("🤖 ⚠️  " .. appName .. " has known accessibility limitations (" .. problematicApps[appName] .. ")")
+        print("🤖 Skipping accessibility API, will use clipboard method")
+        return ""
+    end
     
     -- Try to get the focused UI element using accessibility
     local axApp = hs.axuielement.applicationElement(app)
@@ -52,6 +108,15 @@ function TextHandler:getSelectedTextViaAccessibility()
         return ""
     end
     
+    -- Debug: Show element info
+    local elementRole = focusedAXElement:attributeValue("AXRole")
+    local elementSubrole = focusedAXElement:attributeValue("AXSubrole")
+    local elementDescription = focusedAXElement:attributeValue("AXDescription")
+    print("🤖 Focused element: " .. (elementRole or "unknown") .. " / " .. (elementSubrole or "none"))
+    if elementDescription then
+        print("🤖 Element description: " .. elementDescription:sub(1, 50) .. "...")
+    end
+    
     -- Try to get selected text directly
     local selectedText = focusedAXElement:attributeValue("AXSelectedText")
     if selectedText and selectedText ~= "" then
@@ -63,12 +128,28 @@ function TextHandler:getSelectedTextViaAccessibility()
     local value = focusedAXElement:attributeValue("AXValue")
     local selectedRange = focusedAXElement:attributeValue("AXSelectedTextRange")
     
+    -- Debug: Show what we found
+    print("🤖 Element value length: " .. (value and #value or "nil"))
+    print("🤖 Selection range: " .. (selectedRange and ("loc=" .. selectedRange.location .. " len=" .. selectedRange.length) or "nil"))
+    
+    -- For problematic elements, give up early
+    if not value or #value == 0 then
+        print("🤖 Element has no text content - accessibility not supported")
+        return ""
+    end
+    
     if value and selectedRange and selectedRange.length > 0 then
         local startPos = selectedRange.location + 1  -- Lua is 1-indexed
         local endPos = startPos + selectedRange.length - 1
-        local rangeText = value:sub(startPos, endPos)
-        print("🤖 Found selected text via range: " .. rangeText:sub(1, 50) .. "...")
-        return rangeText
+        
+        -- Safety check for range bounds
+        if startPos > 0 and endPos <= #value and startPos <= endPos then
+            local rangeText = value:sub(startPos, endPos)
+            print("🤖 Found selected text via range: " .. rangeText:sub(1, 50) .. "...")
+            return rangeText
+        else
+            print("🤖 Invalid range bounds: start=" .. startPos .. " end=" .. endPos .. " valueLen=" .. #value)
+        end
     end
     
     print("🤖 No selected text found via accessibility")
@@ -76,30 +157,140 @@ function TextHandler:getSelectedTextViaAccessibility()
 end
 
 function TextHandler:getSelectedTextViaClipboard()
+    print("🤖 Trying clipboard method...")
+    
     -- Store current clipboard content
     local originalClipboard = hs.pasteboard.getContents()
+    print("🤖 Original clipboard: " .. (originalClipboard or "nil"):sub(1, 50) .. (((originalClipboard or ""):len() > 50) and "..." or ""))
     
-    -- Copy selected text to clipboard
-    hs.eventtap.keyStroke({"cmd"}, "c")
+    -- For browsers and complex apps, try a different approach
+    local app = hs.application.frontmostApplication()
+    local isBrowser = app and (app:name() == "Arc" or app:name() == "Safari" or 
+                               app:name() == "Google Chrome" or app:name() == "Firefox")
     
-    -- Small delay to ensure clipboard is updated
-    hs.timer.usleep(100000)  -- 100ms
-    
-    -- Get the new clipboard content
-    local newClipboard = hs.pasteboard.getContents()
-    
-    -- Restore original clipboard after a short delay
-    if originalClipboard then
-        hs.timer.doAfter(0.1, function()
+    if isBrowser then
+        print("🤖 Using browser-optimized clipboard method")
+        
+        -- For browsers, give more time and try multiple attempts
+        local attempts = 0
+        local maxAttempts = 3
+        
+        while attempts < maxAttempts do
+            attempts = attempts + 1
+            print("🤖 Attempt " .. attempts .. "/" .. maxAttempts)
+            
+            -- Set unique marker
+            local tempMarker = "~~TEMP_MARKER_" .. os.time() .. "_" .. attempts .. "~~"
+            hs.pasteboard.setContents(tempMarker)
+            
+            -- Longer delay for browsers
+            hs.timer.usleep(150000)  -- 150ms
+            
+            -- Copy selected text
+            hs.eventtap.keyStroke({"cmd"}, "c")
+            
+            -- Longer wait for browser response
+            hs.timer.usleep(200000)  -- 200ms
+            
+            local newClipboard = hs.pasteboard.getContents()
+            
+            if newClipboard and newClipboard ~= tempMarker and newClipboard ~= originalClipboard then
+                local selectedText = self:cleanAndValidateText(newClipboard)
+                print("🤖 Browser clipboard method succeeded on attempt " .. attempts)
+                print("🤖 Result: " .. selectedText:sub(1, 50) .. (selectedText:len() > 50 and "..." or ""))
+                
+                -- Restore original clipboard
+                if originalClipboard then
+                    hs.pasteboard.setContents(originalClipboard)
+                end
+                
+                return selectedText
+            end
+            
+            print("🤖 Attempt " .. attempts .. " failed, clipboard: " .. (newClipboard or "nil"):sub(1, 30) .. "...")
+        end
+        
+        print("🤖 All browser attempts failed")
+        
+        -- Restore original clipboard
+        if originalClipboard then
             hs.pasteboard.setContents(originalClipboard)
-        end)
+        end
+        
+        return ""
+    else
+        -- Original method for non-browsers
+        local tempMarker = "~~TEMP_MARKER_" .. os.time() .. "~~"
+        hs.pasteboard.setContents(tempMarker)
+        
+        -- Small delay to ensure clipboard is set
+        hs.timer.usleep(50000)  -- 50ms
+        
+        -- Copy selected text to clipboard
+        print("🤖 Sending Cmd+C...")
+        hs.eventtap.keyStroke({"cmd"}, "c")
+        
+        -- Small delay to ensure clipboard is updated
+        hs.timer.usleep(100000)  -- 100ms
+        
+        -- Get the new clipboard content
+        local newClipboard = hs.pasteboard.getContents()
+        print("🤖 New clipboard: " .. (newClipboard or "nil"):sub(1, 50) .. (((newClipboard or ""):len() > 50) and "..." or ""))
+        
+        -- Check if clipboard changed from our temp marker
+        local clipboardChanged = (newClipboard ~= tempMarker)
+        print("🤖 Clipboard changed from temp marker: " .. tostring(clipboardChanged))
+        
+        local selectedText = ""
+        
+        if clipboardChanged and newClipboard then
+            -- Text was selected and copied
+            selectedText = self:cleanAndValidateText(newClipboard)
+            print("🤖 Clipboard method result: " .. selectedText:sub(1, 50) .. (selectedText:len() > 50 and "..." or ""))
+        else
+            print("🤖 No text selection detected via clipboard")
+        end
+        
+        -- Restore original clipboard immediately
+        if originalClipboard then
+            hs.pasteboard.setContents(originalClipboard)
+        end
+        
+        return selectedText
+    end
+end
+
+function TextHandler:getSelectedTextViaAppleScript()
+    print("🤖 Trying AppleScript method...")
+    
+    -- Store current clipboard
+    local originalClipboard = hs.pasteboard.getContents()
+    
+    -- AppleScript to copy selected text
+    local script = [[
+        tell application "System Events"
+            keystroke "c" using command down
+            delay 0.1
+        end tell
+        return the clipboard as string
+    ]]
+    
+    local success, result = hs.osascript.applescript(script)
+    
+    if success and result and result ~= originalClipboard then
+        -- Restore original clipboard
+        if originalClipboard then
+            hs.timer.doAfter(0.1, function()
+                hs.pasteboard.setContents(originalClipboard)
+            end)
+        end
+        
+        local cleanText = self:cleanAndValidateText(result)
+        print("🤖 AppleScript method result: " .. cleanText:sub(1, 50) .. (cleanText:len() > 50 and "..." or ""))
+        return cleanText
     end
     
-    -- Return the selected text if it's different from original
-    if newClipboard and newClipboard ~= originalClipboard then
-        return self:cleanAndValidateText(newClipboard)
-    end
-    
+    print("🤖 AppleScript method failed")
     return ""
 end
 
@@ -115,13 +306,15 @@ function TextHandler:cleanAndValidateText(text)
     text = text:gsub("\r\n", "\n")
     text = text:gsub("\r", "\n")
     
-    -- Remove excessive whitespace while preserving intentional spacing
+    -- Clean whitespace more conservatively to preserve formatting
     text = text:gsub("[ \t]+", " ")  -- Multiple spaces/tabs to single space
     text = text:gsub("\n[ \t]+", "\n")  -- Remove leading whitespace on lines
     text = text:gsub("[ \t]+\n", "\n")  -- Remove trailing whitespace on lines
-    text = text:gsub("\n\n\n+", "\n\n")  -- Multiple blank lines to double newline
     
-    -- Trim leading and trailing whitespace
+    -- Only reduce excessive blank lines (4 or more) to double newlines
+    text = text:gsub("\n\n\n\n+", "\n\n")
+    
+    -- Trim leading and trailing whitespace, but preserve internal structure
     text = text:match("^%s*(.-)%s*$") or ""
     
     -- Validate text length (warn if too long)

@@ -199,7 +199,9 @@ function UIManager:showPersistentDialog(text, width)
                     word-wrap: break-word;
                     overflow-y: auto;
                     font-size: 16px;
-                    line-height: 1.7;
+                    line-height: 1.8;
+                    max-height: 70vh;
+                    padding: 10px 0;
                 }
                 .footer {
                     margin-top: 20px;
@@ -539,8 +541,13 @@ function UIManager:escapeHtml(text)
     text = text:gsub(">", "&gt;")
     text = text:gsub('"', "&quot;")
     text = text:gsub("'", "&#39;")
+    
+    -- Convert literal \n to actual newlines (in case they come as escaped)
+    text = text:gsub("\\n", "\n")
+    
     -- Convert newlines to HTML line breaks
     text = text:gsub("\n", "<br>")
+    
     return text
 end
 

@@ -69,7 +69,11 @@ local function run_integration_tests()
             frontmostApplication = function()
                 return {
                     name = function() return "TestApp" end,
-                    focusedWindow = function() return {} end
+                    focusedWindow = function() 
+                        return {
+                            title = function() return "Test Window" end
+                        }
+                    end
                 }
             end
         },

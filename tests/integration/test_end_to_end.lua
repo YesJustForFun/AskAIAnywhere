@@ -11,7 +11,11 @@ local function setup_integration_environment()
             frontmostApplication = function()
                 return {
                     name = function() return "TestApp" end,
-                    focusedWindow = function() return {} end
+                    focusedWindow = function() 
+                        return {
+                            title = function() return "Test Window" end
+                        }
+                    end
                 }
             end
         },

@@ -75,12 +75,15 @@ function HotkeyManager:bindActionHotkeys(hotkeyArray, actionRegistry, createCont
             
             local success, error = pcall(function()
                 print("🤖 Creating execution context...")
-                -- Create execution context
+                
+                -- Create execution context without pre-fetching text
+                -- Let the context get fresh text when it needs it
                 local context = createContextCallback()
+                
                 print("🤖 Context created successfully")
                 
                 print("🤖 Validating input...")
-                -- Validate input
+                -- Validate input - this will get fresh selected text
                 context:validateInput()
                 print("🤖 Input validated: " .. (context.input or "nil"):sub(1, 50))
                 
