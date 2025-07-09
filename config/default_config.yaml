@@ -6,18 +6,12 @@ environment:
     - "/opt/homebrew/bin"
     - "/usr/local/bin"
     - "~/.local/bin"
-    - "~/Workspaces/kk17/server_scripts/bin"
 
 llm:
   providers:
     gemini:
       command: "gemini"
       args: ["-m", "gemini-2.5-flash", "-p"]
-      enabled: true
-      timeout: 30
-    gemini-py:
-      command: "gemini.py"
-      args: []
       enabled: true
       timeout: 30
     claude:
@@ -47,18 +41,15 @@ hotkeys:
     name: "improveAndPaste"
     description: "Improve writing and paste at cursor"
     actions:
+      - name: "showNotification"
+        args: 
+          message: "Sending to AI for improvement..."
       - name: "runPrompt"
         args:
           prompt: "improve_writing"
-      - name: "copyToClipboard"
+      - name: "replaceSelectedText"
         args:
           text: "${output}"
-      - name: "pasteAtCursor"
-        args:
-          text: "${output}"
-      - name: "showNotification"
-        args:
-          message: "Improved text copied!"
 
   # Continue writing and paste
   - key: "p"
@@ -69,9 +60,9 @@ hotkeys:
       - name: "runPrompt"
         args:
           prompt: "continue_writing"
-      - name: "pasteAtCursor"
+      - name: "replaceSelectedText"
         args:
-          text: "${output}"
+          text: "${input}\n${output}"
 
   # Translate with comparison display
   - key: "e"
@@ -82,17 +73,17 @@ hotkeys:
       - name: "runPrompt"
         args:
           prompt: "translate_english"
-      # - name: "showNotification"
-      #   args:
-      #     message: "Translating"
-      - name: "pasteAtCursor"
+      - name: "showNotification"
+        args:
+          message: "Translating"
+      - name: "replaceSelectedText"
         args:
           text: "${output}"
   # Translate with comparison display
   - key: "c"
     modifiers: ["cmd", "alt", "ctrl"]
-    name: "translateAndCompare"
-    description: "Translate and show comparison"
+    name: "translateChineseAndShow"
+    description: "Translate and show"
     actions:
       - name: "runPrompt"
         args:
@@ -100,12 +91,11 @@ hotkeys:
       - name: "displayText"
         args:
           ui: "comparison"
-          text: "${input}\n\n---\n\n${output}"
+          text: "${output}"
       - name: "copyToClipboard"
         args:
           text: "${output}"
 
-  # Summarize with minimal UI
   - key: "s"
     modifiers: ["cmd", "alt", "ctrl"]
     name: "summarizeQuiet"
@@ -114,6 +104,10 @@ hotkeys:
       - name: "runPrompt"
         args:
           prompt: "summarize"
+      - name: "displayText"
+        args:
+          ui: "comparison"
+          text: "${output}"
       - name: "copyToClipboard"
         args:
           text: "${output}"
@@ -121,15 +115,23 @@ hotkeys:
         args:
           message: "Summary copied to clipboard"
 
-  # Test hotkey (simple notification)
-  # - key: "9"
-  #   modifiers: ["cmd", "shift"]
-  #   name: "testHotkey"
-  #   description: "Test hotkey functionality"
-  #   actions:
-  #     - name: "showNotification"
-  #       args:
-  #         message: "Hotkey test successful!"
+  - key: "f"
+    modifiers: ["cmd", "alt", "ctrl"]
+    name: "fixGrammarAndReplace"
+    description: "Fix grammar and replace selected text"
+    actions:
+      - name: "runPrompt"
+        args:
+          prompt: "fix_grammar"
+      - name: "replaceSelectedText"
+        args:
+          text: "${output}"
+      - name: "copyToClipboard"
+        args:
+          text: "${output}"
+      - name: "showNotification"
+        args:
+          message: "Fixed grammar and replaced selected text"
 
 # Named UI configurations for different scenarios
 ui:
@@ -175,14 +177,14 @@ prompts:
     title: "Translate to Chinese"
     description: "Translate text to Chinese"
     category: "translation"
-    template: "Please translate the following text to Chinese:\n\n${input}"
-    
+    template: "Please provide only one of the most precise Chinese translation of the following text:\n\n${input}"
+
   translate_english:
     title: "Translate to English"
     description: "Translate text to English"
     category: "translation"
-    template: "Please translate the following text to English:\n\n${input}"
-    
+    template: "Please provide only one of the most precise English translation of the following text:\n\n${input}"
+
   continue_writing:
     title: "Continue Writing"
     description: "Extend and continue the text"
