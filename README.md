@@ -46,7 +46,7 @@ A powerful Hammerspoon-based tool for AI-assisted text processing from anywhere 
 
 4. **Test the installation**:
    - Select some text in any application
-   - Press `⌘ + Shift + /` to open the main menu
+   - Press `⌘ + ⌥ + ⌃ + /` to open the main menu
 
 ## 🔧 Configuration
 
@@ -54,47 +54,44 @@ A powerful Hammerspoon-based tool for AI-assisted text processing from anywhere 
 
 | Hotkey | Action |
 |--------|--------|
-| `⌘ + Shift + /` | Show main operation menu |
-| `⌘ + Shift + I` | Improve writing (quick action) |
-| `⌘ + Shift + P` | Continue writing (quick action) |
-| `⌘ + Shift + T` | Translate text (quick action) |
-| `⌘ + Shift + S` | Summarize text (quick action) |
+| `⌘ + ⌥ + ⌃ + /` | Show main operation menu |
+| `⌘ + ⌥ + ⌃ + I` | Improve writing and paste at cursor |
+| `⌘ + ⌥ + ⌃ + P` | Continue writing and paste at cursor |
+| `⌘ + ⌥ + ⌃ + E` | Translate to English and paste at cursor |
+| `⌘ + ⌥ + ⌃ + C` | Translate to Chinese and show comparison |
+| `⌘ + ⌥ + ⌃ + S` | Summarize and copy quietly |
+| `⌘ + ⌥ + ⌃ + F` | Fix grammar and replace selected text |
 
 ### Custom Configuration
 
-Create a configuration file at `~/.hammerspoon/ask-ai-config.json`:
+Create a configuration file at `~/.hammerspoon/ask-ai-config.yaml`:
 
-```json
-{
-  "llm": {
-    "defaultProvider": "claude",
-    "fallbackProvider": "gemini",
-    "providers": {
-      "claude": {
-        "command": "claude",
-        "args": ["-p"],
-        "enabled": true,
-        "timeout": 30
-      },
-      "gemini": {
-        "command": "gemini", 
-        "args": ["-p"],
-        "enabled": true,
-        "timeout": 30
-      }
-    }
-  },
-  "ui": {
-    "outputMethod": "display",
-    "showProgress": true
-  },
-  "hotkeys": {
-    "mainMenu": {
-      "key": "/",
-      "modifiers": ["cmd", "shift"]
-    }
-  }
-}
+```yaml
+llm:
+  defaultProvider: claude
+  fallbackProvider: gemini
+  providers:
+    claude:
+      command: claude
+      args: ["-p"]
+      enabled: true
+      timeout: 30
+    gemini:
+      command: gemini
+      args: ["-p"]
+      enabled: true
+      timeout: 30
+
+ui:
+  outputMethod: display
+  showProgress: true
+
+hotkeys:
+  - key: "/"
+    modifiers: ["cmd", "alt", "ctrl"]
+    name: "mainMenu"
+    actions:
+      - name: "showMainMenu"
 ```
 
 ### Available Operations
@@ -112,7 +109,7 @@ Create a configuration file at `~/.hammerspoon/ask-ai-config.json`:
 ### Basic Workflow
 
 1. **Select text** in any application (or copy to clipboard)
-2. **Press hotkey** (`⌘ + Shift + /` by default)
+2. **Press hotkey** (`⌘ + ⌥ + ⌃ + /` by default)
 3. **Choose operation** from the menu
 4. **Wait for processing** (progress indicator will show)
 5. **Review result** in the display window
@@ -130,16 +127,12 @@ Create a configuration file at `~/.hammerspoon/ask-ai-config.json`:
 
 You can create custom operations by modifying the configuration:
 
-```json
-{
-  "operations": {
-    "custom_operation": {
-      "title": "My Custom Operation",
-      "description": "Does something specific",
-      "prompt": "Please perform this specific task on the following text:"
-    }
-  }
-}
+```yaml
+operations:
+  custom_operation:
+    title: "My Custom Operation"
+    description: "Does something specific"
+    prompt: "Please perform this specific task on the following text:"
 ```
 
 #### Menu Bar Access
@@ -164,7 +157,7 @@ hammerspoon-ask-ai/
 │   ├── ui_manager.lua       # User interface components
 │   └── hotkey_manager.lua   # Global hotkey management
 ├── config/
-│   └── default_config.json  # Default configuration
+│   └── default_config.yaml  # Default configuration
 ├── tests/
 │   ├── unit/                # Unit tests
 │   ├── integration/         # Integration tests
