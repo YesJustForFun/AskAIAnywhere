@@ -407,6 +407,68 @@ function ActionRegistry:registerCoreActions()
         }
     })
     
+    -- Show Input Box for Ad-hoc Prompt
+    self:register("showInputBoxForAdhocPrompt", function(args, context)
+        local title = args.title or "Enter Ad-hoc Prompt"
+        local message = args.message or "Enter your custom prompt:"
+        local defaultText = args.defaultText or ""
+        local outputPromptName = args.output_prompt_name or "ad-hoc"
+        local template = args.template or "${selected_text}"
+        local uiConfig = args.ui or "default"
+        
+        print("🤖 Showing ad-hoc prompt input box")
+        
+        -- Get UI configuration
+        local uiSettings = context:getUIConfig(uiConfig)
+        
+        -- This will be set when the dialog completes
+        context._asyncOperation = {
+            type = "input_dialog",
+            title = title,
+            message = message,
+            defaultText = defaultText,
+            outputPromptName = outputPromptName,
+            template = template,
+            uiConfig = uiSettings
+        }
+        
+        return "async_pending"
+    end, {
+        description = "Show input box for ad-hoc prompt and save to memory",
+        parameters = {
+            title = {
+                type = "string",
+                default = "Enter Ad-hoc Prompt",
+                description = "Dialog title"
+            },
+            message = {
+                type = "string",
+                default = "Enter your custom prompt:",
+                description = "Dialog message"
+            },
+            defaultText = {
+                type = "string",
+                default = "",
+                description = "Default text in input box"
+            },
+            output_prompt_name = {
+                type = "string",
+                default = "ad-hoc",
+                description = "Name to save the prompt as in memory"
+            },
+            template = {
+                type = "string",
+                default = "${selected_text}",
+                description = "Template for the prompt (will be prefixed with user input)"
+            },
+            ui = {
+                type = "string",
+                default = "default",
+                description = "UI configuration name"
+            }
+        }
+    })
+    
     print("🤖 Core actions registered successfully")
 end
 

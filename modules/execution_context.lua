@@ -10,6 +10,7 @@ function ExecutionContext:new(input, config, components)
         output = nil,
         variables = {
             input = input or "",
+            selected_text = input or "",
             timestamp = os.date("%Y%m%d_%H%M%S"),
             date = os.date("%Y-%m-%d"),
             time = os.date("%H:%M:%S")
@@ -254,6 +255,108 @@ function ExecutionContext:_executeActionsRecursive(actions, index)
             end)
             
             return -- Exit here, continuation happens in callback
+        elseif asyncOp.type == "input_dialog" then
+            print("🤖 Starting async input dialog operation...")
+            
+            -- Check if showConfigurableTextInput method exists (for fallback)
+            if self.uiManager.showConfigurableTextInput then
+                print("🤖 Using configurable WebView input dialog")
+                -- Show configurable text input dialog
+                self.uiManager:showConfigurableTextInput(
+                    asyncOp.title,
+                    asyncOp.message,
+                    asyncOp.defaultText,
+                    function(userInput)
+                        if userInput and userInput ~= "" then
+                            print("🤖 ✓ User provided input: " .. userInput)
+                            
+                            -- Create the prompt template with user input
+                            local fullTemplate = userInput .. "\n\n" .. asyncOp.template
+                            
+                            -- Save the prompt to memory (temporary prompts table)
+                            if not self.config.prompts then
+                                self.config.prompts = {}
+                            end
+                            
+                            self.config.prompts[asyncOp.outputPromptName] = {
+                                title = "Ad-hoc: " .. userInput:sub(1, 50) .. (userInput:len() > 50 and "..." or ""),
+                                description = "User-defined ad-hoc prompt",
+                                template = fullTemplate,
+                                category = "custom",
+                                adhoc = true
+                            }
+                            
+                            print("🤖 ✓ Prompt saved to memory as: " .. asyncOp.outputPromptName)
+                            
+                            -- Set variables for immediate use
+                            self:setVariable("input_prompt", userInput)
+                            self:setVariable("output", asyncOp.outputPromptName)
+                            
+                            -- Store action result
+                            self:setMetadata("lastAction", action.name)
+                            self:setMetadata("lastResult", asyncOp.outputPromptName)
+                            
+                            -- Continue with next action
+                            self:_executeActionsRecursive(actions, index + 1)
+                        else
+                            print("🤖 ✗ Input dialog cancelled")
+                            hs.alert.show("Input cancelled")
+                            self.isExecuting = false
+                            return
+                        end
+                    end,
+                    asyncOp.uiConfig
+                )
+            else
+                print("🤖 ⚠️ Fallback to simple text input dialog")
+                -- Fallback to simple dialog
+                self.uiManager:showTextInput(
+                    asyncOp.title,
+                    asyncOp.message,
+                    asyncOp.defaultText,
+                    function(userInput)
+                        if userInput and userInput ~= "" then
+                            print("🤖 ✓ User provided input (fallback): " .. userInput)
+                            
+                            -- Create the prompt template with user input
+                            local fullTemplate = userInput .. "\n\n" .. asyncOp.template
+                            
+                            -- Save the prompt to memory
+                            if not self.config.prompts then
+                                self.config.prompts = {}
+                            end
+                            
+                            self.config.prompts[asyncOp.outputPromptName] = {
+                                title = "Ad-hoc: " .. userInput:sub(1, 50) .. (userInput:len() > 50 and "..." or ""),
+                                description = "User-defined ad-hoc prompt",
+                                template = fullTemplate,
+                                category = "custom",
+                                adhoc = true
+                            }
+                            
+                            print("🤖 ✓ Prompt saved to memory as: " .. asyncOp.outputPromptName)
+                            
+                            -- Set variables for immediate use
+                            self:setVariable("input_prompt", userInput)
+                            self:setVariable("output", asyncOp.outputPromptName)
+                            
+                            -- Store action result
+                            self:setMetadata("lastAction", action.name)
+                            self:setMetadata("lastResult", asyncOp.outputPromptName)
+                            
+                            -- Continue with next action
+                            self:_executeActionsRecursive(actions, index + 1)
+                        else
+                            print("🤖 ✗ Input dialog cancelled")
+                            hs.alert.show("Input cancelled")
+                            self.isExecuting = false
+                            return
+                        end
+                    end
+                )
+            end
+            
+            return -- Exit here, continuation happens in callback
         end
     else
         print("🤖 ✓ Action completed: " .. action.name)
@@ -290,6 +393,7 @@ function ExecutionContext:validateInput()
         
         self.input = input
         self:setVariable("input", input)
+        self:setVariable("selected_text", input)
         print("🤖 Input acquired: " .. input:sub(1, 50) .. (input:len() > 50 and "..." or ""))
     else
         -- Input already exists, just validate it's not corrupted
@@ -305,6 +409,7 @@ function ExecutionContext:validateInput()
                 print("🤖 Using fresh input: " .. freshInput:sub(1, 50) .. (freshInput:len() > 50 and "..." or ""))
                 self.input = freshInput
                 self:setVariable("input", freshInput)
+                self:setVariable("selected_text", freshInput)
             else
                 print("🤖 Fresh input also looks like command or is empty, keeping original")
             end

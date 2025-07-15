@@ -598,6 +598,212 @@ function UIManager:showTextInput(title, message, defaultText, callback)
     end
 end
 
+function UIManager:showConfigurableTextInput(title, message, defaultText, callback, uiConfig)
+    -- Extract input configuration
+    local inputConfig = uiConfig.textInput or {}
+    local widthPercentage = inputConfig.widthPercentage or 50
+    local heightPercentage = inputConfig.heightPercentage or 25
+    local multiline = inputConfig.multiline or true
+    
+    -- Get screen dimensions
+    local screen = hs.screen.mainScreen()
+    local screenFrame = screen:frame()
+    local dialogWidth = math.floor(screenFrame.w * widthPercentage / 100)
+    local dialogHeight = math.floor(screenFrame.h * heightPercentage / 100)
+    
+    -- Center the dialog
+    local dialogFrame = {
+        x = (screenFrame.w - dialogWidth) / 2,
+        y = (screenFrame.h - dialogHeight) / 2,
+        w = dialogWidth,
+        h = dialogHeight
+    }
+    
+    -- Create WebView for input dialog
+    local inputDialog = hs.webview.new(dialogFrame)
+    
+    -- Generate HTML content
+    local inputType = multiline and "textarea" or "input"
+    local inputElement = multiline and 
+        string.format('<textarea id="userInput" placeholder="%s" rows="8">%s</textarea>', 
+                      message or "", defaultText or "") or
+        string.format('<input type="text" id="userInput" placeholder="%s" value="%s" />', 
+                      message or "", defaultText or "")
+    
+    local htmlContent = string.format([[
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    margin: 0;
+                    padding: 20px;
+                    background: #f5f5f5;
+                    height: 100vh;
+                    display: flex;
+                    flex-direction: column;
+                    box-sizing: border-box;
+                }
+                .dialog-container {
+                    background: white;
+                    border-radius: 8px;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                    padding: 20px;
+                    flex: 1;
+                    display: flex;
+                    flex-direction: column;
+                }
+                .title {
+                    font-size: 16px;
+                    font-weight: 600;
+                    margin-bottom: 10px;
+                    color: #333;
+                }
+                .message {
+                    font-size: 14px;
+                    color: #666;
+                    margin-bottom: 15px;
+                }
+                #userInput {
+                    width: 100%%;
+                    padding: 8px;
+                    font-size: 14px;
+                    border: 1px solid #ddd;
+                    border-radius: 4px;
+                    box-sizing: border-box;
+                    resize: vertical;
+                    flex: 1;
+                }
+                .buttons {
+                    display: flex;
+                    gap: 10px;
+                    justify-content: flex-end;
+                    margin-top: 15px;
+                }
+                button {
+                    padding: 8px 16px;
+                    border: none;
+                    border-radius: 4px;
+                    font-size: 14px;
+                    cursor: pointer;
+                }
+                .cancel {
+                    background: #f0f0f0;
+                    color: #333;
+                }
+                .ok {
+                    background: #007AFF;
+                    color: white;
+                }
+                button:hover {
+                    opacity: 0.8;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="dialog-container">
+                <div class="title">%s</div>
+                <div class="message">%s</div>
+                %s
+                <div class="buttons">
+                    <button class="cancel" onclick="handleCancel()">Cancel</button>
+                    <button class="ok" onclick="handleSubmit()">OK</button>
+                </div>
+            </div>
+            <script>
+                function handleSubmit() {
+                    const input = document.getElementById('userInput');
+                    const value = input.value.trim();
+                    if (value) {
+                        window.location.href = 'askaisubmit://submit/' + encodeURIComponent(value);
+                    } else {
+                        window.location.href = 'askaisubmit://cancel';
+                    }
+                }
+                
+                function handleCancel() {
+                    window.location.href = 'askaisubmit://cancel';
+                }
+                
+                document.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                        handleSubmit();
+                    } else if (e.key === 'Escape') {
+                        handleCancel();
+                    }
+                });
+                
+                // Focus the input
+                document.getElementById('userInput').focus();
+            </script>
+        </body>
+        </html>
+    ]], title, message or "", inputElement)
+    
+    -- Set up the WebView
+    inputDialog:html(htmlContent)
+    inputDialog:allowGestures(true)
+    inputDialog:windowStyle({"titled", "closable", "resizable"})
+    inputDialog:closeOnEscape(true)
+    inputDialog:windowTitle(title)
+    inputDialog:level(hs.drawing.windowLevels.modalPanel)
+    inputDialog:behavior(hs.drawing.windowBehaviors.transient)
+    
+    -- Handle URL navigation for form submission
+    inputDialog:navigationCallback(function(action, webview, navType, url)
+        -- Handle nil URL (occurs during navigation events)
+        if not url then
+            return true
+        end
+        
+        -- Convert URL to string if it's a userdata object
+        local urlString = tostring(url)
+        
+        if urlString:match("^askaisubmit://") then
+            local actionType = urlString:match("askaisubmit://([^/]+)")
+            if actionType == "submit" then
+                local value = urlString:match("askaisubmit://submit/(.+)")
+                if value then
+                    value = hs.http.urlDecode(value)
+                    callback(value)
+                else
+                    callback(nil)
+                end
+            else
+                callback(nil)
+            end
+            inputDialog:delete()
+            self.currentInputDialog = nil
+            return false
+        end
+        return true
+    end)
+    
+    -- Handle window close
+    inputDialog:windowCallback(function(action, webview, window)
+        if action == "closing" then
+            self.currentInputDialog = nil
+            callback(nil)
+        end
+    end)
+    
+    -- Show the dialog and bring it to front
+    print("🤖 Showing input dialog with frame:", hs.inspect(dialogFrame))
+    inputDialog:show()
+    inputDialog:bringToFront(true)
+    
+    -- Note: WebView doesn't have focus() method, window focus is automatic
+    -- Add a small delay to ensure the dialog is fully rendered and focused
+    hs.timer.doAfter(0.1, function()
+        print("🤖 Input dialog should be focused and visible")
+        inputDialog:bringToFront(true)
+    end)
+    
+    -- Store reference to prevent garbage collection
+    self.currentInputDialog = inputDialog
+end
+
 function UIManager:createMenuBar()
     -- Create a menu bar item for quick access
     local menubar = hs.menubar.new()

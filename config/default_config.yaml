@@ -62,7 +62,7 @@ hotkeys:
           prompt: "continue_writing"
       - name: "replaceSelectedText"
         args:
-          text: "${input}\n${output}"
+          text: "${selected_text}\n${output}"
 
   # Translate with comparison display
   - key: "e"
@@ -140,6 +140,10 @@ ui:
     showProgress: true
     menuWidth: 400
     menuRows: 8
+    textInput:
+      widthPercentage: 50
+      heightPercentage: 25
+      multiline: true
     resultDialog:
       widthPercentage: 50
       maxLines: 20
@@ -164,6 +168,18 @@ ui:
     menuWidth: 500
     menuRows: 10
     showProgress: true
+    
+  large:
+    outputMethod: "display"
+    showProgress: true
+    textInput:
+      widthPercentage: 60
+      heightPercentage: 35
+      multiline: true
+    resultDialog:
+      widthPercentage: 60
+      maxLines: 30
+      persistent: true
 
 # Prompt templates with metadata
 prompts:
@@ -171,55 +187,55 @@ prompts:
     title: "Improve Writing"
     description: "Enhance grammar, clarity, and style"
     category: "writing"
-    template: "Please improve the following text by enhancing grammar, clarity, and style while maintaining the original meaning:\n\n${input}"
+    template: "Please improve the following text by enhancing grammar, clarity, and style while maintaining the original meaning:\n\n${selected_text}"
       
   translate_chinese:
     title: "Translate to Chinese"
     description: "Translate text to Chinese"
     category: "translation"
-    template: "Please provide only one of the most precise Chinese translation of the following text:\n\n${input}"
+    template: "Please provide only one of the most precise Chinese translation of the following text:\n\n${selected_text}"
 
   translate_english:
     title: "Translate to English"
     description: "Translate text to English"
     category: "translation"
-    template: "Please provide only one of the most precise English translation of the following text:\n\n${input}"
+    template: "Please provide only one of the most precise English translation of the following text:\n\n${selected_text}"
 
   continue_writing:
     title: "Continue Writing"
     description: "Extend and continue the text"
     category: "writing"
-    template: "Please continue writing from where this text left off, maintaining the same style and tone:\n\n${input}"
+    template: "Please continue writing from where this text left off, maintaining the same style and tone:\n\n${selected_text}"
 
   summarize:
     title: "Summarize"
     description: "Create a concise summary"
     category: "analysis"
-    template: "Please provide a concise summary of the following text:\n\n${input}"
+    template: "Please provide a concise summary of the following text:\n\n${selected_text}"
 
   explain:
     title: "Explain"
     description: "Explain the content clearly"
     category: "analysis"
-    template: "Please explain the following text in simple, clear terms:\n\n${input}"
+    template: "Please explain the following text in simple, clear terms:\n\n${selected_text}"
 
   fix_grammar:
     title: "Fix Grammar"
     description: "Fix grammar and spelling errors"
     category: "writing"
-    template: "Please fix any grammar and spelling errors in the following text:\n\n${input}"
+    template: "Please fix any grammar and spelling errors in the following text:\n\n${selected_text}"
 
   change_tone_professional:
     title: "Make Professional"
     description: "Change tone to professional"
     category: "writing"
-    template: "Please rewrite the following text in a professional tone:\n\n${input}"
+    template: "Please rewrite the following text in a professional tone:\n\n${selected_text}"
 
   change_tone_casual:
     title: "Make Casual"
     description: "Change tone to casual/friendly"
     category: "writing"
-    template: "Please rewrite the following text in a casual, friendly tone:\n\n${input}"
+    template: "Please rewrite the following text in a casual, friendly tone:\n\n${selected_text}"
 
 # Action definitions with parameter validation
 actions:
