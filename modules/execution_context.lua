@@ -10,6 +10,7 @@ function ExecutionContext:new(input, config, components)
         output = nil,
         variables = {
             input = input or "",
+            selected_text = input or "",
             timestamp = os.date("%Y%m%d_%H%M%S"),
             date = os.date("%Y-%m-%d"),
             time = os.date("%H:%M:%S")
@@ -290,6 +291,7 @@ function ExecutionContext:validateInput()
         
         self.input = input
         self:setVariable("input", input)
+        self:setVariable("selected_text", input)
         print("🤖 Input acquired: " .. input:sub(1, 50) .. (input:len() > 50 and "..." or ""))
     else
         -- Input already exists, just validate it's not corrupted
@@ -305,6 +307,7 @@ function ExecutionContext:validateInput()
                 print("🤖 Using fresh input: " .. freshInput:sub(1, 50) .. (freshInput:len() > 50 and "..." or ""))
                 self.input = freshInput
                 self:setVariable("input", freshInput)
+                self:setVariable("selected_text", freshInput)
             else
                 print("🤖 Fresh input also looks like command or is empty, keeping original")
             end

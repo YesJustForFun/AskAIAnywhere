@@ -16,7 +16,7 @@ local function setup_test_environment()
                 return {
                     title = "Test Prompt",
                     description = "A test prompt",
-                    template = "Process this text: ${input}"
+                    template = "Process this text: ${selected_text}"
                 }
             end
             return nil
@@ -84,9 +84,9 @@ local function test_variable_substitution()
             description = "Number variable substitution"
         },
         {
-            input = "Input: ${input}",
+            input = "Input: ${selected_text}",
             expected = "Input: test input",
-            description = "Built-in input variable"
+            description = "Built-in selected_text variable"
         },
         {
             input = "No variables here",

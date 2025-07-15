@@ -407,6 +407,63 @@ function ActionRegistry:registerCoreActions()
         }
     })
     
+    -- Show Input Box for Ad-hoc Prompt
+    self:register("showInputBoxForAdhocPrompt", function(args, context)
+        local title = args.title or "Enter Ad-hoc Prompt"
+        local message = args.message or "Enter your custom prompt:"
+        local defaultText = args.defaultText or ""
+        local finalTemplate = args.final or "${input_prompt}:${selected_text}"
+        
+        print("🤖 Showing ad-hoc prompt input box")
+        
+        -- Show text input dialog
+        local result = hs.dialog.textPrompt(title, message, defaultText, "OK", "Cancel")
+        
+        if result.buttonReturned == "OK" and result.text and result.text ~= "" then
+            local inputPrompt = result.text
+            print("🤖 User provided ad-hoc prompt: " .. inputPrompt)
+            
+            -- Set the input_prompt variable in context
+            context:setVariable("input_prompt", inputPrompt)
+            
+            -- Process the final template with variable substitution
+            local finalText = context:substituteVariables(finalTemplate)
+            
+            -- Set the output variable to the final processed text
+            context:setVariable("output", finalText)
+            
+            print("🤖 Final processed text: " .. finalText)
+            return finalText
+        else
+            print("🤖 Ad-hoc prompt cancelled")
+            return nil
+        end
+    end, {
+        description = "Show input box for ad-hoc prompt and process template",
+        parameters = {
+            title = {
+                type = "string",
+                default = "Enter Ad-hoc Prompt",
+                description = "Dialog title"
+            },
+            message = {
+                type = "string",
+                default = "Enter your custom prompt:",
+                description = "Dialog message"
+            },
+            defaultText = {
+                type = "string",
+                default = "",
+                description = "Default text in input box"
+            },
+            final = {
+                type = "string",
+                default = "${input_prompt}:${selected_text}",
+                description = "Template to process with variables"
+            }
+        }
+    })
+    
     print("🤖 Core actions registered successfully")
 end
 

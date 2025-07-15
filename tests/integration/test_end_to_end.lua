@@ -305,12 +305,12 @@ local function create_test_config()
             translate_chinese = {
                 title = "Translate to Chinese",
                 description = "Translate text to Chinese",
-                template = "Please translate the following text to Chinese: ${input}"
+                template = "Please translate the following text to Chinese: ${selected_text}"
             },
             improve_writing = {
                 title = "Improve Writing",
                 description = "Improve the writing quality",
-                template = "Please improve the following text: ${input}"
+                template = "Please improve the following text: ${selected_text}"
             }
         },
         ui = {
@@ -513,7 +513,7 @@ local function test_action_execution_workflow()
     
     -- Test action execution
     local actions = {
-        {name = "copyToClipboard", args = {text = "${input}"}},
+        {name = "copyToClipboard", args = {text = "${selected_text}"}},
         {name = "showNotification", args = {message = "Test notification"}}
     }
     
