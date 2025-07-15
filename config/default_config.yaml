@@ -140,6 +140,10 @@ ui:
     showProgress: true
     menuWidth: 400
     menuRows: 8
+    textInput:
+      widthPercentage: 50
+      heightPercentage: 25
+      multiline: true
     resultDialog:
       widthPercentage: 50
       maxLines: 20
@@ -164,6 +168,18 @@ ui:
     menuWidth: 500
     menuRows: 10
     showProgress: true
+    
+  large:
+    outputMethod: "display"
+    showProgress: true
+    textInput:
+      widthPercentage: 60
+      heightPercentage: 35
+      multiline: true
+    resultDialog:
+      widthPercentage: 60
+      maxLines: 30
+      persistent: true
 
 # Prompt templates with metadata
 prompts:

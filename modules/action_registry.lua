@@ -412,34 +412,29 @@ function ActionRegistry:registerCoreActions()
         local title = args.title or "Enter Ad-hoc Prompt"
         local message = args.message or "Enter your custom prompt:"
         local defaultText = args.defaultText or ""
-        local finalTemplate = args.final or "${input_prompt}:${selected_text}"
+        local outputPromptName = args.output_prompt_name or "ad-hoc"
+        local template = args.template or "${selected_text}"
+        local uiConfig = args.ui or "default"
         
         print("🤖 Showing ad-hoc prompt input box")
         
-        -- Show text input dialog
-        local result = hs.dialog.textPrompt(title, message, defaultText, "OK", "Cancel")
+        -- Get UI configuration
+        local uiSettings = context:getUIConfig(uiConfig)
         
-        if result.buttonReturned == "OK" and result.text and result.text ~= "" then
-            local inputPrompt = result.text
-            print("🤖 User provided ad-hoc prompt: " .. inputPrompt)
-            
-            -- Set the input_prompt variable in context
-            context:setVariable("input_prompt", inputPrompt)
-            
-            -- Process the final template with variable substitution
-            local finalText = context:substituteVariables(finalTemplate)
-            
-            -- Set the output variable to the final processed text
-            context:setVariable("output", finalText)
-            
-            print("🤖 Final processed text: " .. finalText)
-            return finalText
-        else
-            print("🤖 Ad-hoc prompt cancelled")
-            return nil
-        end
+        -- This will be set when the dialog completes
+        context._asyncOperation = {
+            type = "input_dialog",
+            title = title,
+            message = message,
+            defaultText = defaultText,
+            outputPromptName = outputPromptName,
+            template = template,
+            uiConfig = uiSettings
+        }
+        
+        return "async_pending"
     end, {
-        description = "Show input box for ad-hoc prompt and process template",
+        description = "Show input box for ad-hoc prompt and save to memory",
         parameters = {
             title = {
                 type = "string",
@@ -456,10 +451,20 @@ function ActionRegistry:registerCoreActions()
                 default = "",
                 description = "Default text in input box"
             },
-            final = {
+            output_prompt_name = {
                 type = "string",
-                default = "${input_prompt}:${selected_text}",
-                description = "Template to process with variables"
+                default = "ad-hoc",
+                description = "Name to save the prompt as in memory"
+            },
+            template = {
+                type = "string",
+                default = "${selected_text}",
+                description = "Template for the prompt (will be prefixed with user input)"
+            },
+            ui = {
+                type = "string",
+                default = "default",
+                description = "UI configuration name"
             }
         }
     })
