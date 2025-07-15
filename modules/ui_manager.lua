@@ -757,10 +757,13 @@ function UIManager:showConfigurableTextInput(title, message, defaultText, callba
             return true
         end
         
-        if url:match("^askaisubmit://") then
-            local action = url:match("askaisubmit://([^/]+)")
-            if action == "submit" then
-                local value = url:match("askaisubmit://submit/(.+)")
+        -- Convert URL to string if it's a userdata object
+        local urlString = tostring(url)
+        
+        if urlString:match("^askaisubmit://") then
+            local actionType = urlString:match("askaisubmit://([^/]+)")
+            if actionType == "submit" then
+                local value = urlString:match("askaisubmit://submit/(.+)")
                 if value then
                     value = hs.http.urlDecode(value)
                     callback(value)
@@ -789,12 +792,12 @@ function UIManager:showConfigurableTextInput(title, message, defaultText, callba
     print("🤖 Showing input dialog with frame:", hs.inspect(dialogFrame))
     inputDialog:show()
     inputDialog:bringToFront(true)
-    inputDialog:focus()
     
-    -- Add a small delay to ensure the dialog is fully rendered before focusing
+    -- Note: WebView doesn't have focus() method, window focus is automatic
+    -- Add a small delay to ensure the dialog is fully rendered and focused
     hs.timer.doAfter(0.1, function()
-        print("🤖 Input dialog focus attempt")
-        inputDialog:focus()
+        print("🤖 Input dialog should be focused and visible")
+        inputDialog:bringToFront(true)
     end)
     
     -- Store reference to prevent garbage collection
