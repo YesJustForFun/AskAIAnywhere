@@ -674,6 +674,13 @@ function UIManager:showConfigurableTextInput(title, message, defaultText, callba
                     box-sizing: border-box;
                     resize: vertical;
                     flex: 1;
+                    outline: none;
+                    background: white;
+                    color: #333;
+                }
+                #userInput:focus {
+                    border-color: #007AFF;
+                    box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.2);
                 }
                 .buttons {
                     display: flex;
@@ -712,30 +719,89 @@ function UIManager:showConfigurableTextInput(title, message, defaultText, callba
                 </div>
             </div>
             <script>
+                // Global variables to store the result
+                window.dialogResult = null;
+                window.dialogComplete = false;
+                
                 function handleSubmit() {
+                    console.log('Submit button clicked');
                     const input = document.getElementById('userInput');
                     const value = input.value.trim();
-                    if (value) {
-                        window.location.href = 'askaisubmit://submit/' + encodeURIComponent(value);
-                    } else {
-                        window.location.href = 'askaisubmit://cancel';
-                    }
+                    console.log('Input value:', value);
+                    
+                    // Store result in global variable for Hammerspoon to access
+                    window.dialogResult = value || null;
+                    window.dialogComplete = true;
+                    
+                    // Wait a moment to let polling handle it first
+                    setTimeout(function() {
+                        if (window.dialogComplete) {
+                            // If dialog is still complete after delay, use URL fallback
+                            console.log('Using URL fallback for submit');
+                            if (value) {
+                                window.location.href = 'askaisubmit://submit/' + encodeURIComponent(value);
+                            } else {
+                                window.location.href = 'askaisubmit://cancel';
+                            }
+                        }
+                    }, 200);
                 }
                 
                 function handleCancel() {
-                    window.location.href = 'askaisubmit://cancel';
+                    console.log('Cancel button clicked');
+                    
+                    // Store result in global variable for Hammerspoon to access
+                    window.dialogResult = null;
+                    window.dialogComplete = true;
+                    
+                    // Wait a moment to let polling handle it first
+                    setTimeout(function() {
+                        if (window.dialogComplete) {
+                            // If dialog is still complete after delay, use URL fallback
+                            console.log('Using URL fallback for cancel');
+                            window.location.href = 'askaisubmit://cancel';
+                        }
+                    }, 200);
                 }
                 
-                document.addEventListener('keydown', function(e) {
-                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                document.addEventListener('DOMContentLoaded', function() {
+                    console.log('DOM loaded');
+                    
+                    // Focus the input field
+                    const input = document.getElementById('userInput');
+                    input.focus();
+                    input.select();
+                    
+                    // Add event listeners
+                    document.addEventListener('keydown', function(e) {
+                        console.log('Key pressed:', e.key);
+                        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                            e.preventDefault();
+                            handleSubmit();
+                        } else if (e.key === 'Escape') {
+                            e.preventDefault();
+                            handleCancel();
+                        }
+                    });
+                    
+                    // Test input functionality
+                    input.addEventListener('input', function(e) {
+                        console.log('Input changed:', e.target.value);
+                    });
+                    
+                    // Test button clicks
+                    document.querySelector('.ok').addEventListener('click', function(e) {
+                        console.log('OK button clicked');
+                        e.preventDefault();
                         handleSubmit();
-                    } else if (e.key === 'Escape') {
+                    });
+                    
+                    document.querySelector('.cancel').addEventListener('click', function(e) {
+                        console.log('Cancel button clicked');
+                        e.preventDefault();
                         handleCancel();
-                    }
+                    });
                 });
-                
-                // Focus the input
-                document.getElementById('userInput').focus();
             </script>
         </body>
         </html>
@@ -744,11 +810,49 @@ function UIManager:showConfigurableTextInput(title, message, defaultText, callba
     -- Set up the WebView
     inputDialog:html(htmlContent)
     inputDialog:allowGestures(true)
+    inputDialog:allowMagnificationGestures(true)
+    inputDialog:allowNavigationGestures(true)
     inputDialog:windowStyle({"titled", "closable", "resizable"})
     inputDialog:closeOnEscape(true)
     inputDialog:windowTitle(title)
     inputDialog:level(hs.drawing.windowLevels.modalPanel)
     inputDialog:behavior(hs.drawing.windowBehaviors.transient)
+    
+    -- Enable user interaction
+    inputDialog:allowTextEntry(true)
+    inputDialog:transparent(false)
+    
+    -- Track whether callback has been called to prevent double-calling
+    local callbackCalled = false
+    
+    -- Wrapper to ensure callback is only called once
+    local function safeCallback(result)
+        if not callbackCalled then
+            callbackCalled = true
+            print("🤖 Dialog callback triggered with result:", result and "value" or "nil")
+            
+            -- Clean up dialog and timer
+            if self.currentPollTimer then
+                self.currentPollTimer:stop()
+                self.currentPollTimer = nil
+            end
+            
+            if inputDialog and inputDialog == self.currentInputDialog then
+                inputDialog:delete()
+                self.currentInputDialog = nil
+            end
+            
+            -- Call the original callback
+            callback(result)
+        else
+            print("🤖 Dialog callback already called, ignoring duplicate")
+        end
+    end
+
+    -- Try to enable JavaScript execution after a delay to ensure WebView is ready
+    hs.timer.doAfter(0.1, function()
+        inputDialog:evaluateJavaScript("console.log('JavaScript enabled')")
+    end)
     
     -- Handle URL navigation for form submission
     inputDialog:navigationCallback(function(action, webview, navType, url)
@@ -766,15 +870,16 @@ function UIManager:showConfigurableTextInput(title, message, defaultText, callba
                 local value = urlString:match("askaisubmit://submit/(.+)")
                 if value then
                     value = hs.http.urlDecode(value)
-                    callback(value)
+                    print("🤖 URL navigation submit with value:", value)
+                    safeCallback(value)
                 else
-                    callback(nil)
+                    print("🤖 URL navigation submit with nil value")
+                    safeCallback(nil)
                 end
             else
-                callback(nil)
+                print("🤖 URL navigation cancel")
+                safeCallback(nil)
             end
-            inputDialog:delete()
-            self.currentInputDialog = nil
             return false
         end
         return true
@@ -783,8 +888,8 @@ function UIManager:showConfigurableTextInput(title, message, defaultText, callba
     -- Handle window close
     inputDialog:windowCallback(function(action, webview, window)
         if action == "closing" then
-            self.currentInputDialog = nil
-            callback(nil)
+            print("🤖 Window closing callback")
+            safeCallback(nil)
         end
     end)
     
@@ -793,11 +898,75 @@ function UIManager:showConfigurableTextInput(title, message, defaultText, callba
     inputDialog:show()
     inputDialog:bringToFront(true)
     
-    -- Note: WebView doesn't have focus() method, window focus is automatic
     -- Add a small delay to ensure the dialog is fully rendered and focused
-    hs.timer.doAfter(0.1, function()
+    hs.timer.doAfter(0.2, function()
         print("🤖 Input dialog should be focused and visible")
         inputDialog:bringToFront(true)
+        
+        -- Try to focus the input field via JavaScript
+        inputDialog:evaluateJavaScript([[
+            const input = document.getElementById('userInput');
+            if (input) {
+                input.focus();
+                input.select();
+                console.log('Input focused via JavaScript');
+            }
+        ]])
+        
+        -- Start polling for dialog completion as fallback
+        local pollTimer = hs.timer.new(0.1, function()
+            -- Check if dialog still exists and is valid
+            if not inputDialog or not self.currentInputDialog or inputDialog ~= self.currentInputDialog then
+                if self.currentPollTimer then
+                    self.currentPollTimer:stop()
+                    self.currentPollTimer = nil
+                end
+                return false -- Stop the timer
+            end
+            
+            -- Safely evaluate JavaScript with error handling
+            local success, _ = pcall(function()
+                inputDialog:evaluateJavaScript([[
+                    window.dialogComplete || false
+                ]], function(result)
+                    if result then
+                        -- Get the result with additional safety check
+                        if inputDialog and inputDialog == self.currentInputDialog then
+                            inputDialog:evaluateJavaScript([[
+                                const result = window.dialogResult;
+                                window.dialogComplete = false; // Reset to prevent URL fallback
+                                result;
+                            ]], function(value)
+                                print("🤖 Dialog completed via polling with result:", value)
+                                safeCallback(value)
+                            end)
+                        end
+                    end
+                end)
+            end)
+            
+            if not success then
+                print("🤖 ⚠️ JavaScript evaluation failed, stopping polling")
+                if self.currentPollTimer then
+                    self.currentPollTimer:stop()
+                    self.currentPollTimer = nil
+                end
+                return false
+            end
+        end)
+        pollTimer:start()
+        
+        -- Store timer reference for cleanup
+        self.currentPollTimer = pollTimer
+        
+        -- Stop polling after 60 seconds to prevent infinite polling
+        hs.timer.doAfter(60, function()
+            if pollTimer and self.currentPollTimer then
+                pollTimer:stop()
+                self.currentPollTimer = nil
+                print("🤖 Polling timeout - dialog may have been closed")
+            end
+        end)
     end)
     
     -- Store reference to prevent garbage collection
@@ -890,6 +1059,17 @@ function UIManager:cleanup()
     if self.currentDialog then
         self.currentDialog:delete()
         self.currentDialog = nil
+    end
+    
+    -- Clean up input dialog and polling timer
+    if self.currentPollTimer then
+        self.currentPollTimer:stop()
+        self.currentPollTimer = nil
+    end
+    
+    if self.currentInputDialog then
+        self.currentInputDialog:delete()
+        self.currentInputDialog = nil
     end
     
     print("🤖 UI Manager cleanup completed")

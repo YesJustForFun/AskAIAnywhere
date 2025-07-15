@@ -350,7 +350,8 @@ function ActionRegistry:registerCoreActions()
             return
         end
         
-        context.textHandler:replaceSelectedText(text)
+        -- Pass the original focus context to ensure proper replacement
+        context.textHandler:replaceSelectedText(text, context.originalFocusContext)
         print("🤖 Selected text replaced")
         return text
     end, {
