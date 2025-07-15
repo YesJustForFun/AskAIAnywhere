@@ -747,6 +747,8 @@ function UIManager:showConfigurableTextInput(title, message, defaultText, callba
     inputDialog:windowStyle({"titled", "closable", "resizable"})
     inputDialog:closeOnEscape(true)
     inputDialog:windowTitle(title)
+    inputDialog:level(hs.drawing.windowLevels.modalPanel)
+    inputDialog:behavior(hs.drawing.windowBehaviors.transient)
     
     -- Handle URL navigation for form submission
     inputDialog:navigationCallback(function(action, webview, navType, url)
@@ -769,6 +771,7 @@ function UIManager:showConfigurableTextInput(title, message, defaultText, callba
                 callback(nil)
             end
             inputDialog:delete()
+            self.currentInputDialog = nil
             return false
         end
         return true
@@ -777,12 +780,25 @@ function UIManager:showConfigurableTextInput(title, message, defaultText, callba
     -- Handle window close
     inputDialog:windowCallback(function(action, webview, window)
         if action == "closing" then
+            self.currentInputDialog = nil
             callback(nil)
         end
     end)
     
-    -- Show the dialog
+    -- Show the dialog and bring it to front
+    print("🤖 Showing input dialog with frame:", hs.inspect(dialogFrame))
     inputDialog:show()
+    inputDialog:bringToFront(true)
+    inputDialog:focus()
+    
+    -- Add a small delay to ensure the dialog is fully rendered before focusing
+    hs.timer.doAfter(0.1, function()
+        print("🤖 Input dialog focus attempt")
+        inputDialog:focus()
+    end)
+    
+    -- Store reference to prevent garbage collection
+    self.currentInputDialog = inputDialog
 end
 
 function UIManager:createMenuBar()
