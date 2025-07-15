@@ -258,52 +258,103 @@ function ExecutionContext:_executeActionsRecursive(actions, index)
         elseif asyncOp.type == "input_dialog" then
             print("🤖 Starting async input dialog operation...")
             
-            -- Show configurable text input dialog
-            self.uiManager:showConfigurableTextInput(
-                asyncOp.title,
-                asyncOp.message,
-                asyncOp.defaultText,
-                function(userInput)
-                    if userInput and userInput ~= "" then
-                        print("🤖 ✓ User provided input: " .. userInput)
-                        
-                        -- Create the prompt template with user input
-                        local fullTemplate = userInput .. "\n\n" .. asyncOp.template
-                        
-                        -- Save the prompt to memory (temporary prompts table)
-                        if not self.config.prompts then
-                            self.config.prompts = {}
+            -- Check if showConfigurableTextInput method exists (for fallback)
+            if self.uiManager.showConfigurableTextInput then
+                print("🤖 Using configurable WebView input dialog")
+                -- Show configurable text input dialog
+                self.uiManager:showConfigurableTextInput(
+                    asyncOp.title,
+                    asyncOp.message,
+                    asyncOp.defaultText,
+                    function(userInput)
+                        if userInput and userInput ~= "" then
+                            print("🤖 ✓ User provided input: " .. userInput)
+                            
+                            -- Create the prompt template with user input
+                            local fullTemplate = userInput .. "\n\n" .. asyncOp.template
+                            
+                            -- Save the prompt to memory (temporary prompts table)
+                            if not self.config.prompts then
+                                self.config.prompts = {}
+                            end
+                            
+                            self.config.prompts[asyncOp.outputPromptName] = {
+                                title = "Ad-hoc: " .. userInput:sub(1, 50) .. (userInput:len() > 50 and "..." or ""),
+                                description = "User-defined ad-hoc prompt",
+                                template = fullTemplate,
+                                category = "custom",
+                                adhoc = true
+                            }
+                            
+                            print("🤖 ✓ Prompt saved to memory as: " .. asyncOp.outputPromptName)
+                            
+                            -- Set variables for immediate use
+                            self:setVariable("input_prompt", userInput)
+                            self:setVariable("output", asyncOp.outputPromptName)
+                            
+                            -- Store action result
+                            self:setMetadata("lastAction", action.name)
+                            self:setMetadata("lastResult", asyncOp.outputPromptName)
+                            
+                            -- Continue with next action
+                            self:_executeActionsRecursive(actions, index + 1)
+                        else
+                            print("🤖 ✗ Input dialog cancelled")
+                            hs.alert.show("Input cancelled")
+                            self.isExecuting = false
+                            return
                         end
-                        
-                        self.config.prompts[asyncOp.outputPromptName] = {
-                            title = "Ad-hoc: " .. userInput:sub(1, 50) .. (userInput:len() > 50 and "..." or ""),
-                            description = "User-defined ad-hoc prompt",
-                            template = fullTemplate,
-                            category = "custom",
-                            adhoc = true
-                        }
-                        
-                        print("🤖 ✓ Prompt saved to memory as: " .. asyncOp.outputPromptName)
-                        
-                        -- Set variables for immediate use
-                        self:setVariable("input_prompt", userInput)
-                        self:setVariable("output", asyncOp.outputPromptName)
-                        
-                        -- Store action result
-                        self:setMetadata("lastAction", action.name)
-                        self:setMetadata("lastResult", asyncOp.outputPromptName)
-                        
-                        -- Continue with next action
-                        self:_executeActionsRecursive(actions, index + 1)
-                    else
-                        print("🤖 ✗ Input dialog cancelled")
-                        hs.alert.show("Input cancelled")
-                        self.isExecuting = false
-                        return
+                    end,
+                    asyncOp.uiConfig
+                )
+            else
+                print("🤖 ⚠️ Fallback to simple text input dialog")
+                -- Fallback to simple dialog
+                self.uiManager:showTextInput(
+                    asyncOp.title,
+                    asyncOp.message,
+                    asyncOp.defaultText,
+                    function(userInput)
+                        if userInput and userInput ~= "" then
+                            print("🤖 ✓ User provided input (fallback): " .. userInput)
+                            
+                            -- Create the prompt template with user input
+                            local fullTemplate = userInput .. "\n\n" .. asyncOp.template
+                            
+                            -- Save the prompt to memory
+                            if not self.config.prompts then
+                                self.config.prompts = {}
+                            end
+                            
+                            self.config.prompts[asyncOp.outputPromptName] = {
+                                title = "Ad-hoc: " .. userInput:sub(1, 50) .. (userInput:len() > 50 and "..." or ""),
+                                description = "User-defined ad-hoc prompt",
+                                template = fullTemplate,
+                                category = "custom",
+                                adhoc = true
+                            }
+                            
+                            print("🤖 ✓ Prompt saved to memory as: " .. asyncOp.outputPromptName)
+                            
+                            -- Set variables for immediate use
+                            self:setVariable("input_prompt", userInput)
+                            self:setVariable("output", asyncOp.outputPromptName)
+                            
+                            -- Store action result
+                            self:setMetadata("lastAction", action.name)
+                            self:setMetadata("lastResult", asyncOp.outputPromptName)
+                            
+                            -- Continue with next action
+                            self:_executeActionsRecursive(actions, index + 1)
+                        else
+                            print("🤖 ✗ Input dialog cancelled")
+                            hs.alert.show("Input cancelled")
+                            self.isExecuting = false
+                            return
+                        end
                     end
-                end,
-                asyncOp.uiConfig
-            )
+                )
+            end
             
             return -- Exit here, continuation happens in callback
         end
