@@ -5,6 +5,13 @@ local ExecutionContext = {}
 ExecutionContext.__index = ExecutionContext
 
 function ExecutionContext:new(input, config, components)
+    -- Capture the original focus context immediately
+    local originalApp = hs.application.frontmostApplication()
+    local originalWindow = nil
+    if originalApp then
+        originalWindow = originalApp:focusedWindow()
+    end
+    
     local context = {
         input = input or "",
         output = nil,
@@ -25,7 +32,14 @@ function ExecutionContext:new(input, config, components)
         executionId = tostring(math.random(1000000, 9999999)),
         executionDepth = 0,
         maxExecutionDepth = 5,
-        isExecuting = false
+        isExecuting = false,
+        -- Store original focus context for text replacement
+        originalFocusContext = {
+            app = originalApp,
+            window = originalWindow,
+            appName = originalApp and originalApp:name() or "Unknown",
+            bundleID = originalApp and originalApp:bundleID() or "Unknown"
+        }
     }
     setmetatable(context, ExecutionContext)
     return context
@@ -49,6 +63,9 @@ function ExecutionContext:createChild()
     child.output = self.output
     child.executionDepth = self.executionDepth + 1
     child.executionId = self.executionId .. "_child"
+    
+    -- Inherit the original focus context from parent
+    child.originalFocusContext = self.originalFocusContext
     
     return child
 end
@@ -274,17 +291,23 @@ function ExecutionContext:_executeActionsRecursive(actions, index)
                             local fullTemplate = userInput .. "\n\n" .. asyncOp.template
                             
                             -- Save the prompt to memory (temporary prompts table)
-                            if not self.config.prompts then
-                                self.config.prompts = {}
-                            end
-                            
-                            self.config.prompts[asyncOp.outputPromptName] = {
+                            -- Use the config's set method to properly save the prompt
+                            local promptData = {
                                 title = "Ad-hoc: " .. userInput:sub(1, 50) .. (userInput:len() > 50 and "..." or ""),
                                 description = "User-defined ad-hoc prompt",
                                 template = fullTemplate,
                                 category = "custom",
                                 adhoc = true
                             }
+                            
+                            -- Save to config using the proper path
+                            self.config:set("prompts." .. asyncOp.outputPromptName, promptData)
+                            
+                            -- Also save to the prompts table directly as fallback
+                            if not self.config.prompts then
+                                self.config.prompts = {}
+                            end
+                            self.config.prompts[asyncOp.outputPromptName] = promptData
                             
                             print("🤖 ✓ Prompt saved to memory as: " .. asyncOp.outputPromptName)
                             
@@ -322,17 +345,23 @@ function ExecutionContext:_executeActionsRecursive(actions, index)
                             local fullTemplate = userInput .. "\n\n" .. asyncOp.template
                             
                             -- Save the prompt to memory
-                            if not self.config.prompts then
-                                self.config.prompts = {}
-                            end
-                            
-                            self.config.prompts[asyncOp.outputPromptName] = {
+                            -- Use the config's set method to properly save the prompt
+                            local promptData = {
                                 title = "Ad-hoc: " .. userInput:sub(1, 50) .. (userInput:len() > 50 and "..." or ""),
                                 description = "User-defined ad-hoc prompt",
                                 template = fullTemplate,
                                 category = "custom",
                                 adhoc = true
                             }
+                            
+                            -- Save to config using the proper path
+                            self.config:set("prompts." .. asyncOp.outputPromptName, promptData)
+                            
+                            -- Also save to the prompts table directly as fallback
+                            if not self.config.prompts then
+                                self.config.prompts = {}
+                            end
+                            self.config.prompts[asyncOp.outputPromptName] = promptData
                             
                             print("🤖 ✓ Prompt saved to memory as: " .. asyncOp.outputPromptName)
                             

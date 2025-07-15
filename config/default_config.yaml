@@ -133,6 +133,26 @@ hotkeys:
         args:
           message: "Fixed grammar and replaced selected text"
 
+  # Ad-hoc prompt input
+  - key: "a"
+    modifiers: ["cmd", "alt", "ctrl"]
+    name: "adhoc-prompt"
+    description: "Enter custom ad-hoc prompt"
+    actions:
+      - name: "showInputBoxForAdhocPrompt"
+        args:
+          title: "Ad-hoc Prompt"
+          message: "Enter your custom prompt:"
+          output_prompt_name: "ad-hoc"
+          template: "${selected_text}"
+          ui: "large"
+      - name: "runPrompt"
+        args:
+          prompt: "ad-hoc"
+      - name: "replaceSelectedText"
+        args:
+          text: "${output}"
+
 # Named UI configurations for different scenarios
 ui:
   default:

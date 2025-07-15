@@ -334,10 +334,72 @@ function TextHandler:setClipboard(text)
     hs.pasteboard.setContents(text)
 end
 
-function TextHandler:replaceSelectedText(text)
+function TextHandler:replaceSelectedText(text, originalFocusContext)
+    -- Use the stored original focus context if provided, otherwise get current
+    local originalApp, originalWindow, originalAppName
+    if originalFocusContext and originalFocusContext.app then
+        originalApp = originalFocusContext.app
+        originalWindow = originalFocusContext.window
+        originalAppName = originalFocusContext.appName
+        print("🤖 Using stored focus context: " .. originalAppName)
+    else
+        originalApp = hs.application.frontmostApplication()
+        originalWindow = nil
+        if originalApp then
+            originalWindow = originalApp:focusedWindow()
+            originalAppName = originalApp:name()
+        end
+        print("🤖 Using current focus context: " .. (originalAppName or "Unknown"))
+    end
+    
     -- First copy the replacement text to clipboard
     local originalClipboard = hs.pasteboard.getContents()
     hs.pasteboard.setContents(text)
+    
+    -- Small delay to ensure clipboard is set
+    hs.timer.usleep(50000)  -- 50ms
+    
+    -- Always try to restore focus to the original app/window
+    if originalApp then
+        local currentApp = hs.application.frontmostApplication()
+        local needsRestore = false
+        
+        if not currentApp then
+            needsRestore = true
+        elseif originalFocusContext and originalFocusContext.bundleID then
+            -- Use stored bundle ID for more reliable comparison
+            needsRestore = (currentApp:bundleID() ~= originalFocusContext.bundleID)
+        else
+            needsRestore = (currentApp:bundleID() ~= originalApp:bundleID())
+        end
+        
+        if needsRestore then
+            print("🤖 Focus changed, attempting to restore to: " .. originalAppName)
+            
+            -- Try to bring the original app to front
+            local success = originalApp:activate()
+            if success then
+                hs.timer.usleep(200000)  -- 200ms for app activation
+                
+                -- Try to restore window focus
+                if originalWindow then
+                    local windowSuccess = originalWindow:focus()
+                    if windowSuccess then
+                        hs.timer.usleep(100000)  -- 100ms for window focus
+                        print("🤖 ✓ Focus restored to: " .. originalAppName)
+                    else
+                        print("🤖 ⚠️ Failed to restore window focus")
+                    end
+                else
+                    print("🤖 ⚠️ No original window to restore")
+                end
+            else
+                print("🤖 ⚠️ Failed to restore app focus to: " .. originalAppName)
+            end
+        else
+            print("🤖 Focus is already correct: " .. (currentApp and currentApp:name() or "Unknown"))
+        end
+    end
     
     -- Use AppleScript to paste the text
     local script = [[
@@ -346,7 +408,12 @@ function TextHandler:replaceSelectedText(text)
         end tell
     ]]
     
-    hs.osascript.applescript(script)
+    local success, result = hs.osascript.applescript(script)
+    if not success then
+        print("🤖 ⚠️ AppleScript paste failed, trying direct keystroke")
+        -- Fallback to direct keystroke
+        hs.eventtap.keyStroke({"cmd"}, "v")
+    end
     
     -- Restore original clipboard after a short delay
     if originalClipboard then
