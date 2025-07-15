@@ -750,6 +750,11 @@ function UIManager:showConfigurableTextInput(title, message, defaultText, callba
     
     -- Handle URL navigation for form submission
     inputDialog:navigationCallback(function(action, webview, navType, url)
+        -- Handle nil URL (occurs during navigation events)
+        if not url then
+            return true
+        end
+        
         if url:match("^askaisubmit://") then
             local action = url:match("askaisubmit://([^/]+)")
             if action == "submit" then
