@@ -981,27 +981,46 @@ function UIManager:createMenuBar()
         menubar:setTitle("🤖")
         menubar:setTooltip("Ask AI Anywhere")
         
-        local menuItems = {
-            {
-                title = "Show Main Menu",
-                fn = function() 
-                    if self.parent and self.parent.showMainMenu then
-                        self.parent:showMainMenu()
+        local menuItems = {}
+        
+        -- Get prompts from configuration
+        if self.parent and self.parent.config then
+            local prompts = self.parent.config:get("prompts") or {}
+            
+            -- Add prompt items directly to menu
+            for promptName, promptData in pairs(prompts) do
+                table.insert(menuItems, {
+                    title = promptData.title or promptName,
+                    fn = function()
+                        -- Execute the prompt directly
+                        if self.parent and self.parent.executePromptFromMenu then
+                            self.parent:executePromptFromMenu(promptName)
+                        end
                     end
-                end
-            },
-            {
+                })
+            end
+            
+            -- Sort menu items by title
+            table.sort(menuItems, function(a, b)
+                return a.title < b.title
+            end)
+        end
+        
+        -- Add separator and configuration option
+        if #menuItems > 0 then
+            table.insert(menuItems, {
                 title = "-" -- Separator
-            },
-            {
-                title = "Reload Configuration",
-                fn = function()
-                    if self.parent and self.parent.reloadConfiguration then
-                        self.parent:reloadConfiguration()
-                    end
+            })
+        end
+        
+        table.insert(menuItems, {
+            title = "Reload Configuration",
+            fn = function()
+                if self.parent and self.parent.reloadConfiguration then
+                    self.parent:reloadConfiguration()
                 end
-            }
-        }
+            end
+        })
         
         menubar:setMenu(menuItems)
     end
