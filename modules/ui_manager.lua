@@ -994,22 +994,6 @@ function UIManager:createMenuBar()
                 title = "-" -- Separator
             },
             {
-                title = "Test Configuration",
-                fn = function()
-                    if self.parent and self.parent.testConfiguration then
-                        self.parent:testConfiguration()
-                    end
-                end
-            },
-            {
-                title = "Test Hotkeys",
-                fn = function()
-                    if self.parent and self.parent.testHotkeys then
-                        self.parent:testHotkeys()
-                    end
-                end
-            },
-            {
                 title = "Reload Configuration",
                 fn = function()
                     if self.parent and self.parent.reloadConfiguration then
