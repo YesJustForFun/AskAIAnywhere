@@ -287,6 +287,31 @@ function AskAI:handleResult(result, outputMethod)
     end
 end
 
+function AskAI:executePromptFromMenu(promptName)
+    local inputText = self.textHandler:getSelectedText()
+    if not inputText or inputText == "" then
+        inputText = self.textHandler:getClipboard()
+    end
+    
+    if not inputText or inputText == "" then
+        hs.alert.show("No text selected or in clipboard")
+        return
+    end
+    
+    -- Use action-based execution similar to showMainMenu
+    local context = self:createExecutionContext(inputText)
+    context:executeActions({
+        {
+            name = "runPrompt",
+            args = { prompt = promptName }
+        },
+        {
+            name = "displayText",
+            args = { text = "${output}", ui = "default" }
+        }
+    })
+end
+
 -- Test configuration functionality
 function AskAI:testConfiguration()
     print("🤖 Testing configuration...")
